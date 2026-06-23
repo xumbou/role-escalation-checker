@@ -55,6 +55,25 @@ and `csrf` (token pulled from a cookie/endpoint, injected on mutating verbs).
 
 **Safe by default**: mutating requests run only with `safety.destructive: true` (auto rollback).
 
+## Install on Kali Linux / Debian
+
+```bash
+# Option A - pipx (recommended, isolated; the Kali-friendly way):
+sudo apt install -y pipx
+pipx install .            # provides the `bacscan` command in your PATH
+bacscan --help
+
+# Option B - one-liner (pipx if present, else a local .venv):
+./install.sh
+
+# Option C - distro packages, no build step:
+sudo apt install -y python3-requests python3-yaml
+python3 -m bacscan --config examples/engagement.example.yaml --har traffic.har
+```
+
+`bacscan`, `python3 -m bacscan` and `python3 -m bacscan.cli` are equivalent.
+Run the full local validation suite with `python3 tests/run_checks.py`.
+
 ## Why it is safe to use responsibly
 
 - **Non-destructive by default.** The mutating promotion request is sent only

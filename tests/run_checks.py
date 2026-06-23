@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """Batterie de checks locaux pour bacscan.
 
@@ -165,6 +166,20 @@ def c_scope_guard():
     raise AssertionError("scope guard n'a pas refuse un hote hors perimetre")
 
 
+def c_pyflakes():
+    import importlib.util
+    import subprocess
+    if importlib.util.find_spec("pyflakes") is None:
+        print("    (pyflakes absent -> check ignore ; pip install pyflakes)")
+        return
+    r = subprocess.run(
+        [sys.executable, "-m", "pyflakes",
+         os.path.join(ROOT, "bacscan"), os.path.join(ROOT, "tests"),
+         os.path.join(ROOT, "tools")],
+        capture_output=True, text=True)
+    assert r.returncode == 0, "pyflakes a trouve des problemes:\n" + (r.stdout + r.stderr)
+
+
 def main():
     run("1. compile", c_compile)
     run("2. imports", c_imports)
@@ -173,6 +188,7 @@ def main():
     run("5. non-destructif (zero mutation)", c_nondestructive)
     run("6. smoke-cli (findings.json + report.md)", c_smoke_cli)
     run("7. scope-guard", c_scope_guard)
+    run("8. pyflakes (code mort)", c_pyflakes)
 
     fails = [r for r in RESULTS if not r[1]]
     print("\n" + "=" * 60)

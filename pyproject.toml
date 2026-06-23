@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bacscan"
+version = "0.3.0"
+description = "Reusable Broken Access Control / IDOR scanner (authorized-use security tool)"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+authors = [{ name = "xumbou" }]
+keywords = ["security", "pentest", "bola", "idor", "bfla", "access-control", "graphql"]
+dependencies = ["requests>=2.25", "PyYAML>=5.4"]
+
+[project.optional-dependencies]
+dev = ["pyflakes>=3"]
+
+[project.urls]
+Homepage = "https://github.com/xumbou/role-escalation-checker"
+
+# Donne la commande `bacscan` dans le PATH apres `pip install .` / `pipx install .`
+[project.scripts]
+bacscan = "bacscan.cli:main"
+
+[tool.setuptools]
+packages = ["bacscan", "bacscan.probes", "bacscan.plugins"]
