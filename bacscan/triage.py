@@ -84,6 +84,8 @@ def _assess(cfg, f, session, anon, ev, **kw):
         return "confirmed", "introspection repond (information disclosure)", "info", {}
     if t == "existence-leakage":
         return "confirmed", "divergence 403/404 confirmee", "info", {}
+    if t == "excessive-data-exposure":
+        return "confirmed", "champ(s) sensible(s) present(s) dans la reponse", "info", {}
     if t == "graphql-idor":
         return "confirmed", "data non-nul sans erreur d'autorisation (oracle GraphQL)", "access", {}
     if t == "bfla-asymmetry":

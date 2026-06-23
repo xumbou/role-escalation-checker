@@ -26,6 +26,7 @@ def run(cfg, requests_list, **kw):
     findings = []
     matrix = engine.build_matrix(cfg, requests_list, ev, **kw)
     findings += oracles.anonymous_access(matrix)
+    findings += oracles.excessive_data(matrix, cfg)
     for name in cfg.probes:
         fn = PROBES.get(name)
         if fn:

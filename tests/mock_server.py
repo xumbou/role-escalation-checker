@@ -105,6 +105,9 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(401)
         if self.path == "/empty":  # 2xx mais corps vide -> oracle faible
             return self._send(200)
+        if self.path == "/profile":  # VULN : expose des secrets a tout authentifie
+            return self._send(200, {"username": "name1", "email": "[email protected]",
+                                    "password": "pass1", "apiKey": "AK-9f8e7d6c5b4a"})
         if self.path == "/csrf-token":
             return self._send(200, {"ok": True}, cookie="XSRF-TOKEN=csrf123; Path=/")
         if self.path == "/admin/users":  # VULN BFLA

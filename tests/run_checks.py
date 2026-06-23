@@ -181,6 +181,11 @@ def c_origin_case():
     assert test_finding_tiers.main() == 0
 
 
+def c_excessive():
+    import test_excessive
+    assert test_excessive.main() == 0
+
+
 def c_pyflakes():
     import importlib.util
     import subprocess
@@ -206,7 +211,8 @@ def main():
     run("8. triage (faux positifs + log)", c_triage)
     run("9. hardening (retry/redirect/erreurs/redaction/audit)", c_hardening)
     run("10. cas d'origine (auto-nomination admin, forme custom)", c_origin_case)
-    run("11. pyflakes (code mort)", c_pyflakes)
+    run("11. excessive-data-exposure", c_excessive)
+    run("12. pyflakes (code mort)", c_pyflakes)
 
     fails = [r for r in RESULTS if not r[1]]
     print("\n" + "=" * 60)
