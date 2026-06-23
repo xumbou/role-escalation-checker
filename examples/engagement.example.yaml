@@ -66,3 +66,4 @@ declarative_plugins:
 output:
   findings_db: findings/_incoming_dyn.json
   report_md: reports/ACCESS-MATRIX-DYN.md
+  triage_log: reports/triage.log     # journal des faux positifs (raison + categorie)

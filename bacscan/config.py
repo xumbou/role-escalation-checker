@@ -52,6 +52,7 @@ class Config:
         out = data.get("output") or {}
         self.findings_db = out.get("findings_db")
         self.report_md = out.get("report_md")
+        self.triage_log = out.get("triage_log")  # journal des faux positifs / triage
         # blocs de config specifiques aux sondes/plugins
         self.plugin_conf = {k: data[k] for k in ("role_escalation",) if k in data}
         self.bfla = data.get("bfla") or {}

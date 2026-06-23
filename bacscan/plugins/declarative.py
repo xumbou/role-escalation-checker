@@ -100,6 +100,7 @@ def run_all(cfg, ev, **kw):
         if ok:
             findings.append({
                 "type": spec.get("type", name),
+                "confirmed_by": "plugin",
                 "severity": spec.get("severity", "high"),
                 "cwe": spec.get("cwe", ""), "owasp_api": spec.get("owasp_api", ""),
                 "title": spec.get("title") or ("Confirmation declarative: %s" % name),

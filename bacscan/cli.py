@@ -9,7 +9,7 @@ import argparse
 import sys
 
 from . import config as C
-from . import ingest, engine, report, oracles, static_link
+from . import ingest, engine, report, oracles, static_link, triage
 from .probes import idor, bfla, bopla, leakage, idor_dynamic, graphql
 from .plugins import role_escalation, declarative
 from .http import Evidence
@@ -35,7 +35,10 @@ def run(cfg, requests_list, **kw):
         if fn:
             findings += fn(cfg, ev, **kw)
     findings += declarative.run_all(cfg, ev, **kw)  # plugins YAML declaratifs
-    return {"findings": findings, "matrix": matrix, "evidence": ev.events}
+    tri = triage.run(cfg, findings, ev, **kw)        # confirme / refute (avec raison loggee)
+    return {"findings": findings, "matrix": matrix, "evidence": ev.events,
+            "confirmed": tri["confirmed"], "false_positives": tri["false_positives"],
+            "inconclusive": tri["inconclusive"], "triage_log": tri["log"]}
 
 
 def main(argv=None):
@@ -77,13 +80,16 @@ def main(argv=None):
     report.write_findings(res["findings"], cfg.findings_db)
     report.write_report(res["findings"], res["matrix"], cfg, cfg.report_md)
 
-    print("[bacscan] %d requete(s) en scope, %d finding(s)"
-          % (len(reqs), len(res["findings"])))
-    for f in res["findings"]:
+    conf, fps, inc = res["confirmed"], res["false_positives"], res["inconclusive"]
+    print("[bacscan] %d requete(s), %d finding(s) -> %d confirme(s), %d faux positif(s), %d inconclusive"
+          % (len(reqs), len(res["findings"]), len(conf), len(fps), len(inc)))
+    for f in conf:
         print("  [%s] %s - %s" % (str(f.get("severity", "?")).upper(),
                                   f.get("type"), f.get("title", "")))
-    return 1 if any(f.get("severity") in ("high", "critical")
-                    for f in res["findings"]) else 0
+    if fps or inc:
+        print("  triage : %d filtre(s) -> %s"
+              % (len(fps) + len(inc), cfg.triage_log or "(definir output.triage_log pour journaliser)"))
+    return 1 if any(f.get("severity") in ("high", "critical") for f in conf) else 0
 
 
 if __name__ == "__main__":

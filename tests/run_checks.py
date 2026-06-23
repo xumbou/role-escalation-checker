@@ -166,6 +166,11 @@ def c_scope_guard():
     raise AssertionError("scope guard n'a pas refuse un hote hors perimetre")
 
 
+def c_triage():
+    import test_triage
+    assert test_triage.main() == 0
+
+
 def c_pyflakes():
     import importlib.util
     import subprocess
@@ -188,7 +193,8 @@ def main():
     run("5. non-destructif (zero mutation)", c_nondestructive)
     run("6. smoke-cli (findings.json + report.md)", c_smoke_cli)
     run("7. scope-guard", c_scope_guard)
-    run("8. pyflakes (code mort)", c_pyflakes)
+    run("8. triage (faux positifs + log)", c_triage)
+    run("9. pyflakes (code mort)", c_pyflakes)
 
     fails = [r for r in RESULTS if not r[1]]
     print("\n" + "=" * 60)

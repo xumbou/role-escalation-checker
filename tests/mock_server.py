@@ -77,8 +77,12 @@ class Handler(BaseHTTPRequestHandler):
 
     # ----------------------------------------------------------------- GET
     def do_GET(self):
+        if self.path == "/public/banner":  # ressource PUBLIQUE (pas d'auth) -> piege a FP
+            return self._send(200, {"banner": "welcome"})
         if not self._authed():
             return self._send(401)
+        if self.path == "/empty":  # 2xx mais corps vide -> oracle faible
+            return self._send(200)
         if self.path == "/csrf-token":
             return self._send(200, {"ok": True}, cookie="XSRF-TOKEN=csrf123; Path=/")
         if self.path == "/admin/users":  # VULN BFLA

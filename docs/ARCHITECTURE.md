@@ -151,6 +151,18 @@ maps: { cwe: CWE-639, owasp_api: API3:2023 }
 
 > **OpSec renforcé** : le moteur différentiel et la sonde IDOR ne rejouent **plus** les verbes mutateurs en mode non-destructif. Les sondes BFLA verb-tamper / BOPLA, le plugin role-escalation et les plugins déclaratifs marqués `requires.destructive` exigent `safety.destructive: true` (avec rollback). L'auth gère le **refresh de token sur 401** et l'injection **CSRF** sur les verbes mutateurs.
 
+### Triage & faux positifs (`triage.py`)
+Étage post-détection : chaque finding est re-testé puis tagué `confirmed` / `false_positive`
+/ `inconclusive` avec une **raison** et une **catégorie** :
+- `benign` — vrai FP métier (ressource **publique** : 2xx aussi sans auth ; donnée partagée) ;
+- `tool_limitation` — **signal d'amélioration de l'oracle** (2xx à corps vide, effet BOPLA non
+  vérifiable) → c'est là qu'on voit si l'outil sur-détecte ;
+- `impact` — réellement matérialisé (plugins de confirmation : `confirmed_by: plugin`).
+
+Le « pourquoi » est **journalisé** (`output.triage_log`, module `logging`) pour l'analyse a
+posteriori et le suivi de la qualité des sondes. Les findings restent dans la sortie, mais le
+rapport sépare *Confirmés* de *Faux positifs & inconclusive*.
+
 ### Modules d'auth (`auth.py`)
 `Authenticator` par profil, construit depuis le bloc `auth:` du YAML (ou `token:` legacy) :
 `bearer` (header+prefix), `cookie` (cookies de session), `oauth` (refresh sur 401 via un

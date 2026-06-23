@@ -97,6 +97,7 @@ def run(cfg, ev, **kw):
     if is_admin:
         findings.append({
             "type": "privilege-escalation", "severity": "critical",
+            "confirmed_by": "plugin",
             "cwe": "CWE-269", "owasp_api": "API5:2023",
             "title": "Auto-promotion ADMINISTRATOR confirmee (role=%s materialise sur %s)"
                      % (role, resource),

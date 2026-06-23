@@ -55,6 +55,11 @@ and `csrf` (token pulled from a cookie/endpoint, injected on mutating verbs).
 
 **Safe by default**: mutating requests run only with `safety.destructive: true` (auto rollback).
 
+**False-positive triage**: every finding is re-checked for exploitability and tagged
+`confirmed` / `false_positive` / `inconclusive`, each with a **logged reason** (`output.triage_log`).
+It separates *benign* FPs (public/shared resources) from *tool-limitation* signals (e.g. empty
+2xx, unverifiable effect) — so you understand each FP and spot when an oracle needs tightening.
+
 ## Install on Kali Linux / Debian
 
 ```bash
