@@ -42,6 +42,35 @@ ingestion ─► normalisation ─► profils d'auth ─► moteur différentiel
 - **Réutilise** : `har_extract.py`, `normalize.py`.
 - **Leçon Akto** : privilégier le **trafic réel** à l'OpenAPI seul → capte la business logic, réduit les FP.
 
+### 2.1bis Mode assisté (capture → suggest → watch) — `capture.py` / `suggest.py` / `watch.py`
+Supprime le travail manuel d'amont : au lieu d'écrire `engagement.yaml` à la main **et**
+de fournir le HAR à la main, on **récolte** le trafic (proxy → HAR live), on **auto-détecte**
+la config (JWT/paths/rôle admin → `engagement.yaml`) et on **re-scanne en continu**.
+
+- **`capture`** : addon **mitmproxy** (dépendance **optionnelle**, extra `[capture]`, import
+  derrière un `try/except`) ; hook `response(flow)` → append d'une entrée **HAR 1.2** (request
+  + response) **uniquement** pour les hosts en scope (`--allow-host`, réutilise la logique de
+  `host_allowed`). Écriture **incrémentale et toujours valide** (buffer + réécriture atomique
+  `tmp` + `os.replace`), fichier **`0600`** (le HAR contient tokens/cookies). N'émet **aucune**
+  requête propre. La logique HAR pure (`HarWriter`) est testable sans mitmproxy.
+- **`suggest`** : parse le HAR (`ingest.from_har_full`, garde la réponse), **décode les JWT**
+  (sans vérif de signature) pour le `user_id` (`sub`/`userId`/`uid`/…), détecte **promote-path**
+  (POST/PUT/PATCH sur `administrators|admins|roles|members|grants|permissions`, scoré par
+  spécificité), **list-path** (GET `members|users|roles` dont la réponse est une liste à rôle),
+  **role-field + admin-role** (clés `role|authority|type|level` portant `admin|owner|root|…`),
+  **templatise** `{resource}`/`{user}`, puis **génère un `engagement.yaml`** strictement conforme
+  à `config.Config` (validé en fin via `config.load_config`). **N'émet aucune requête réseau** ;
+  toute sortie console passe par `redact.py` (jamais un token en clair).
+- **`watch`** : surveille le HAR (mtime + taille, debounce), ne garde que les **nouvelles**
+  requêtes `(method,url)`, et relance `cli.run()` en **SAFE** — `safety.destructive` est **forcé
+  à `False`** quoi que dise le YAML ; met à jour `findings_db`/`report_md`. `--auto-suggest`
+  régénère les suggestions sur de nouveaux endpoints. Ctrl-C propre.
+
+> **Garde-fous (identiques au reste de l'outil)** : scope dur (hors-scope jamais écrit ni
+> sondé), **zéro mutation automatique** (`--exploit` n'existe que dans le checker standalone et
+> reste 100 % manuel), secrets en `0600` + git-ignore (`*.har`, `engagement*.yaml`,
+> `evidence_*.json`) + rédaction de toute sortie.
+
 ### 2.2 Profils d'auth — **cœur de la réutilisabilité** (1 YAML par engagement)
 - Abstraction de N identités (`anon`, `low`, `victimA`, `admin`…), chacune avec token (+ refresh optionnel)
   et ses identifiants (`userId`, `orgId`).
@@ -149,6 +178,7 @@ maps: { cwe: CWE-639, owasp_api: API3:2023 }
 | **v3** | **auth pluggable** (bearer/cookie/**OAuth refresh**/**CSRF**), **IDOR dynamique** (chaînage/harvest) + **séquentiel**, plugins de confirmation **déclaratifs YAML**, **GraphQL** (introspection + IDOR via variables) | ✅ livré |
 | **v3.1** | durcissement réseau (retry 429/5xx + Retry-After, redirects, erreurs explicites), redaction PII, audit log horodaté, triage des faux positifs | ✅ livré |
 | **v4** | excessive-data-exposure, heuristiques d'ID (clés métier + **base64/MD5 énumérables**), dedup/grouping, **GraphQL mutations/BFLA**, perf (**concurrence/cap/pagination**) — *priorités issues du [field test VAmPI](FIELD-TEST-vampi.md)* | ✅ livré |
+| **v4.1** | **mode assisté** : `capture` (proxy mitmproxy → HAR live, scope-filtré, 0600), `suggest` (JWT/promote/list/admin/role-field → `engagement.yaml` auto-généré & validé), `watch` (re-scan continu en SAFE) ; CLI passée en sous-commandes (rétro-compat `--config`) | ✅ livré |
 | **v5 (backlog)** | IDs hashés non-séquentiels (wordlist), GraphQL field-level authz, throttling adaptatif/WAF-evasion ; **gRPC / WebSocket hors scope** | à faire |
 
 > **OpSec renforcé** : le moteur différentiel et la sonde IDOR ne rejouent **plus** les verbes mutateurs en mode non-destructif. Les sondes BFLA verb-tamper / BOPLA, le plugin role-escalation et les plugins déclaratifs marqués `requires.destructive` exigent `safety.destructive: true` (avec rollback). L'auth gère le **refresh de token sur 401** et l'injection **CSRF** sur les verbes mutateurs.

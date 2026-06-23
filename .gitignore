@@ -1,5 +1,8 @@
-# Evidence logs may contain tokens / real targets -- never commit them
+# Evidence logs / live captures may contain tokens / real targets -- never commit them
 evidence_*.json
+*.har
+engagement*.yaml
+!examples/engagement.example.yaml
 
 __pycache__/
 *.pyc

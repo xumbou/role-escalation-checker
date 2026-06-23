@@ -21,12 +21,25 @@ def _headers_to_dict(headers):
     return d
 
 
+def _load_har(path):
+    """Charge un HAR ; tolere un fichier vide / JSON malforme (-> log vide)."""
+    try:
+        with open(path, encoding="utf-8") as fh:
+            har = json.load(fh)
+    except (ValueError, OSError):
+        return {"log": {"entries": []}}
+    if not isinstance(har, dict):
+        return {"log": {"entries": []}}
+    return har
+
+
 def from_har(path):
-    with open(path, encoding="utf-8") as fh:
-        har = json.load(fh)
+    har = _load_har(path)
     out = []
-    for entry in har.get("log", {}).get("entries", []):
-        req = entry.get("request", {})
+    for entry in (har.get("log") or {}).get("entries") or []:
+        if not isinstance(entry, dict):
+            continue
+        req = entry.get("request") or {}
         url = req.get("url")
         if not url:
             continue
@@ -39,6 +52,40 @@ def from_har(path):
             "method": req.get("method", "GET").upper(),
             "url": url, "headers": _headers_to_dict(req.get("headers")),
             "body": body, "content_type": ct,
+        })
+    return out
+
+
+def from_har_full(path):
+    """Comme from_har mais garde aussi la REPONSE (status, headers, body, mime).
+
+    Necessaire a `suggest` pour detecter list-path (corps de liste) et admin-role
+    (valeurs de role dans les reponses). N'altere pas l'API de from_har.
+    """
+    har = _load_har(path)
+    out = []
+    for entry in (har.get("log") or {}).get("entries") or []:
+        if not isinstance(entry, dict):
+            continue
+        req = entry.get("request") or {}
+        url = req.get("url")
+        if not url:
+            continue
+        body, ct = None, None
+        pd = req.get("postData")
+        if pd:
+            ct = pd.get("mimeType")
+            body = pd.get("text")
+        resp = entry.get("response") or {}
+        content = resp.get("content") or {}
+        out.append({
+            "method": req.get("method", "GET").upper(),
+            "url": url, "headers": _headers_to_dict(req.get("headers")),
+            "body": body, "content_type": ct,
+            "status": resp.get("status"),
+            "resp_headers": _headers_to_dict(resp.get("headers")),
+            "resp_body": content.get("text"),
+            "resp_mime": content.get("mimeType"),
         })
     return out
 

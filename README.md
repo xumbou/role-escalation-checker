@@ -44,6 +44,44 @@ python -m bacscan.cli --config examples/engagement.example.yaml --har traffic.ha
 # also accepts:  --openapi spec.yaml   --access-matrix access_matrix.json
 ```
 
+The CLI is **sub-command based** (`scan` / `capture` / `suggest` / `watch`);
+`bacscan --config ...` with no sub-command stays a `scan` (backward-compatible),
+i.e. `bacscan scan --config ... --har ...` is the explicit form.
+
+### Assisted mode (capture → suggest → watch)
+
+Stop hand-writing `engagement.yaml` and hand-feeding HARs. The assisted mode
+**harvests** traffic live, **auto-detects** the engagement config, and **re-scans
+continuously** — all of it **non-destructive** (`--exploit` does not exist here and
+mutating tests still require `safety.destructive: true`, which `watch` always forces
+off).
+
+```bash
+# 1) Capture live traffic through a proxy -> HAR (needs the `capture` extra)
+pipx inject role-escalation-checker mitmproxy     # or: pip install mitmproxy
+bacscan capture --allow-host api.lab.local --port 8080 --har-out traffic.har
+#   -> set your browser/client proxy to 127.0.0.1:8080, install the CA at http://mitm.it
+#   -> only in-scope hosts are written; the HAR is created 0600 and contains SECRETS
+
+# 2) Auto-detect -> generate engagement.yaml (emits NO request)
+bacscan suggest --har traffic.har --out engagement.suggested.yaml
+#   -> decodes JWTs (user-id), detects promote-path / list-path / admin-role / role-field,
+#      templatizes {resource}/{user}, validates the YAML with the loader
+
+# 3) Watch the HAR and re-scan in SAFE on every change
+bacscan watch --config engagement.suggested.yaml --har traffic.har --interval 5
+#   -> destructive is forced to False; updates findings_db / report_md incrementally
+```
+
+> ⚠️ **Scope & secrets.** Capture writes **only** the hosts you pass with
+> `--allow-host` (any other host is ignored — never written, never probed). The
+> generated YAML and the HAR **contain tokens/cookies** — they are created with
+> `0600` permissions and `*.har` / `engagement*.yaml` / `evidence_*.json` are
+> git-ignored. **Verify `scope.allow_hosts` and the detected paths before any scan.**
+
+`mitmproxy` is an **optional** extra (`[capture]`); `scan`, `suggest` and `watch`
+all work without it installed.
+
 **Probes**: `idor` (BOLA), `idor_dynamic` (id harvesting/chaining + sequential enum),
 `bfla` (force-browse + verb-tampering/asymmetry), `bopla` (mass-assignment),
 `leakage` (existence-leakage oracle), `graphql` (introspection + IDOR via variables).

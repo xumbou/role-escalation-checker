@@ -15,6 +15,9 @@ dependencies = ["requests>=2.25", "PyYAML>=5.4"]
 
 [project.optional-dependencies]
 dev = ["pyflakes>=3"]
+# Mode assiste : capture live (proxy -> HAR). Optionnel.
+#   pipx inject role-escalation-checker mitmproxy   (ou: pip install mitmproxy)
+capture = ["mitmproxy>=10"]
 
 [project.urls]
 Homepage = "https://github.com/xumbou/role-escalation-checker"

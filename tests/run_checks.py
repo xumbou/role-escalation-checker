@@ -55,7 +55,8 @@ def c_imports():
             "bacscan.static_link", "bacscan.cli", "bacscan.probes.idor",
             "bacscan.probes.bfla", "bacscan.probes.bopla", "bacscan.probes.leakage",
             "bacscan.probes.idor_dynamic", "bacscan.probes.graphql",
-            "bacscan.plugins.role_escalation", "bacscan.plugins.declarative"]
+            "bacscan.plugins.role_escalation", "bacscan.plugins.declarative",
+            "bacscan.capture", "bacscan.suggest", "bacscan.watch"]
     for m in mods:
         importlib.import_module(m)
 
@@ -206,6 +207,21 @@ def c_perf():
     assert test_perf.main() == 0
 
 
+def c_suggest():
+    import test_suggest
+    assert test_suggest.main() == 0
+
+
+def c_capture_har():
+    import test_capture_har
+    assert test_capture_har.main() == 0
+
+
+def c_watch():
+    import test_watch
+    assert test_watch.main() == 0
+
+
 def c_pyflakes():
     import importlib.util
     import subprocess
@@ -236,7 +252,10 @@ def main():
     run("13. dedup + grouping", c_dedup)
     run("14. graphql BFLA (mutation sans auth)", c_graphql_bfla)
     run("15. perf (concurrence/cap/pagination)", c_perf)
-    run("16. pyflakes (code mort)", c_pyflakes)
+    run("16. suggest (auto-detection -> engagement.yaml valide)", c_suggest)
+    run("17. capture HAR (append/flush + scope, sans mitmproxy)", c_capture_har)
+    run("18. watch (detection + SAFE force + scope)", c_watch)
+    run("19. pyflakes (code mort)", c_pyflakes)
 
     fails = [r for r in RESULTS if not r[1]]
     print("\n" + "=" * 60)
