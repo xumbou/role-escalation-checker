@@ -57,7 +57,7 @@ ingestion ─► normalisation ─► profils d'auth ─► moteur différentiel
   (Uber bulk lookup), **MD5/hashés crackables**, **org/tenant id** (Shopify — *= le pattern de promotion de rôle*).
 - **BFLA** : force-browse d'endpoints privilégiés (wordlist `admin|manage|internal|valid|approve` — réutiliser
   `PRIV_PAT` de `access_matrix.py`) + **verb tampering** (GET→POST/PUT/PATCH/DELETE).
-- **BOPLA / mass-assignment** : injecter des champs sensibles (`role`, `isAdmin`, `tenantId`, `form=ADMINISTRATOR`)
+- **BOPLA / mass-assignment** : injecter des champs sensibles (`role=ADMINISTRATOR`, `isAdmin`, `tenantId`)
   dans les corps.
 - **Mutations apidor** : parameter pollution / wrapping / substitution / json-extension.
 

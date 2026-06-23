@@ -31,7 +31,7 @@ def _render(tpl, resource, user):
 def _find_role(data, user_id, role_field):
     uid = str(user_id)
     if isinstance(data, dict):
-        items = data.get("members") or data.get("users") or data.get("linkedUsers") or []
+        items = data.get("members") or data.get("users") or data.get("results") or []
     elif isinstance(data, list):
         items = data
     else:
