@@ -1,0 +1,34 @@
+# Exemple de YAML d'engagement bacscan.
+# Le moteur est generique : seul ce fichier change d'une mission a l'autre.
+# Usage autorise uniquement (lab / CTF / engagement signe).
+engagement: example
+base_url: https://api.example.com
+scope:
+  allow_hosts: [api.example.com]      # garde-fou dur : tout autre hote est refuse
+auth:
+  header: Authorization
+  prefix: "Bearer "
+profiles:                              # N identites ; tokens via variables d'env (jamais en clair)
+  - name: anon
+    token: null
+  - name: low
+    token: ${LOW_JWT}
+    ids: { userId: u-1001, orgId: o-50 }
+  - name: victim
+    token: ${VICTIM_JWT}
+    ids: { userId: u-2002, orgId: o-77 }
+safety:
+  destructive: false                   # mettre true pour confirmer une escalade (rollback auto)
+  rollback: auto
+  rate_limit_rps: 0
+probes: [idor]
+impact_plugins: [role_escalation]
+role_escalation:                       # templates {resource}/{user} a adapter a l'API cible
+  list_path: /orgs/{resource}/members
+  promote_path: /orgs/{resource}/administrators/{user}
+  rollback_path: /orgs/{resource}/members/{user}
+  role_field: role
+  admin_role: ADMINISTRATOR
+output:
+  findings_db: findings/_incoming_dyn.json
+  report_md: reports/ACCESS-MATRIX-DYN.md

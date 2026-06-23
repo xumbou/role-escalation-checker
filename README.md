@@ -24,6 +24,25 @@ Maps to **CWE-269** (Improper Privilege Management) + **CWE-639** (IDOR),
 > or a signed penetration-testing engagement. Unauthorized use against
 > third-party systems is illegal.
 
+## Two complementary tools in this repo
+
+1. **`bacscan/`** — a generic, reusable **access-control scanner** (cross-engagement):
+   HAR ingestion → auth profiles (YAML) → differential engine → probes (IDOR/BOLA) →
+   impact-confirmation plugins → JSON findings + Markdown report. See
+   [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+2. **`tools/check_role_escalation.py`** — the standalone **single-vuln checker** for role
+   promotion (sniper), also available as a confirmation **plugin** inside bacscan.
+
+The scan *finds* candidates; the checker/plugin *proves* impact.
+
+### bacscan in 30 seconds
+
+```bash
+pip install -r requirements.txt
+python tests/test_e2e.py     # demo: detects BOLA + role escalation on a vulnerable mock
+python -m bacscan.cli --config examples/engagement.example.yaml --har traffic.har
+```
+
 ## Why it is safe to use responsibly
 
 - **Non-destructive by default.** The mutating promotion request is sent only
