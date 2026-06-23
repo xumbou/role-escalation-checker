@@ -62,7 +62,8 @@ def run(cfg, ev, **kw):
 
     # Controle : promotion sans auth -> doit echouer (rend un 2xx significatif).
     from ..config import Profile
-    H.replay(session, cfg, promote_req, Profile("_anon"), ev,
+    from .. import auth as A
+    H.replay(session, cfg, promote_req, Profile("_anon", A.anon()), ev,
              "role_esc:control_no_auth", **kw)
 
     if not cfg.destructive:

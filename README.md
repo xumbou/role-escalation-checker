@@ -44,10 +44,16 @@ python -m bacscan.cli --config examples/engagement.example.yaml --har traffic.ha
 # also accepts:  --openapi spec.yaml   --access-matrix access_matrix.json
 ```
 
-**Probes**: `idor` (BOLA), `bfla` (force-browse + verb-tampering/asymmetry),
-`bopla` (mass-assignment), `leakage` (existence-leakage oracle). **Confirmation plugin**:
-`role_escalation`. **Safe by default**: mutating requests run only with `safety.destructive: true`
-(with automatic rollback).
+**Probes**: `idor` (BOLA), `idor_dynamic` (id harvesting/chaining + sequential enum),
+`bfla` (force-browse + verb-tampering/asymmetry), `bopla` (mass-assignment),
+`leakage` (existence-leakage oracle), `graphql` (introspection + IDOR via variables).
+**Confirmation**: the `role_escalation` plugin, or **declarative YAML plugins**
+(`declarative_plugins:` — steps / validate / rollback, no code).
+
+**Pluggable auth** (per profile): `bearer`, `cookie`, `oauth` (**token refresh on 401**),
+and `csrf` (token pulled from a cookie/endpoint, injected on mutating verbs).
+
+**Safe by default**: mutating requests run only with `safety.destructive: true` (auto rollback).
 
 ## Why it is safe to use responsibly
 

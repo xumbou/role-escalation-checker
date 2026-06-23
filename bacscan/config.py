@@ -4,8 +4,9 @@
 Le YAML d'engagement est le coeur de la reutilisabilite : le moteur est generique,
 seul ce fichier change d'une mission a l'autre.
 """
-import os
 from urllib.parse import urlsplit
+
+from . import auth as _auth
 
 try:
     import yaml
@@ -18,16 +19,16 @@ class ConfigError(Exception):
 
 
 class Profile:
-    """Une identite de test (anon / low-priv / victime / admin)."""
+    """Une identite de test (anon / low-priv / victime / admin) + son authenticator."""
 
-    def __init__(self, name, token=None, ids=None):
+    def __init__(self, name, authenticator, ids=None):
         self.name = name
-        self.token = token
+        self.auth = authenticator
         self.ids = ids or {}
 
     @property
     def is_anon(self):
-        return not self.token
+        return self.auth.is_anon()
 
 
 class Config:
@@ -36,11 +37,9 @@ class Config:
         self.base_url = (data.get("base_url") or "").rstrip("/")
         scope = data.get("scope") or {}
         self.allow_hosts = set(scope.get("allow_hosts") or [])
-        auth = data.get("auth") or {}
-        self.auth_header = auth.get("header", "Authorization")
-        self.auth_prefix = auth.get("prefix", "Bearer ")
+        g_auth = data.get("auth") or {}
         self.profiles = [
-            Profile(p["name"], _resolve_env(p.get("token")), p.get("ids"))
+            Profile(p["name"], _auth.build(p, g_auth), p.get("ids"))
             for p in (data.get("profiles") or [])
         ]
         safety = data.get("safety") or {}
@@ -49,13 +48,15 @@ class Config:
         self.rate_limit_rps = float(safety.get("rate_limit_rps", 0) or 0)
         self.probes = data.get("probes") or []
         self.impact_plugins = data.get("impact_plugins") or []
+        self.declarative = data.get("declarative_plugins") or []
         out = data.get("output") or {}
         self.findings_db = out.get("findings_db")
         self.report_md = out.get("report_md")
-        # blocs de config specifiques aux plugins/sondes
+        # blocs de config specifiques aux sondes/plugins
         self.plugin_conf = {k: data[k] for k in ("role_escalation",) if k in data}
         self.bfla = data.get("bfla") or {}
         self.bopla = data.get("bopla") or {}
+        self.idor_dynamic = data.get("idor_dynamic") or {}
         self._validate()
 
     def _validate(self):
@@ -80,16 +81,9 @@ class Config:
     def attacker(self):
         """Profil attaquant par defaut : 1er profil authentifie non-admin."""
         for p in self.profiles:
-            if p.token and p.name != "admin":
+            if not p.is_anon and p.name != "admin":
                 return p
         return None
-
-
-def _resolve_env(val):
-    """Resout ${VAR} depuis l'environnement (ne jamais ecrire les tokens en clair)."""
-    if isinstance(val, str) and val.startswith("${") and val.endswith("}"):
-        return os.environ.get(val[2:-1])
-    return val
 
 
 def load_config(path):

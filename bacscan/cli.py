@@ -10,12 +10,13 @@ import sys
 
 from . import config as C
 from . import ingest, engine, report, oracles, static_link
-from .probes import idor, bfla, bopla, leakage
-from .plugins import role_escalation
+from .probes import idor, bfla, bopla, leakage, idor_dynamic, graphql
+from .plugins import role_escalation, declarative
 from .http import Evidence
 
 PROBES = {"idor": idor.run, "bfla": bfla.run, "bopla": bopla.run,
-          "leakage": leakage.run}
+          "leakage": leakage.run, "idor_dynamic": idor_dynamic.run,
+          "graphql": graphql.run}
 PLUGINS = {"role_escalation": role_escalation.run}
 
 
@@ -33,6 +34,7 @@ def run(cfg, requests_list, **kw):
         fn = PLUGINS.get(name)
         if fn:
             findings += fn(cfg, ev, **kw)
+    findings += declarative.run_all(cfg, ev, **kw)  # plugins YAML declaratifs
     return {"findings": findings, "matrix": matrix, "evidence": ev.events}
 
 

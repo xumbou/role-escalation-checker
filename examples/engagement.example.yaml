@@ -5,34 +5,64 @@ engagement: example
 base_url: https://api.example.com
 scope:
   allow_hosts: [api.example.com]      # garde-fou dur : tout autre hote est refuse
+
+# Auth globale par defaut (utilisee par les profils en mode 'token:' legacy)
 auth:
   header: Authorization
   prefix: "Bearer "
-profiles:                              # N identites ; tokens via variables d'env (jamais en clair)
+
+profiles:                              # N identites ; secrets via ${VAR} (jamais en clair)
   - name: anon
     token: null
-  - name: low
+
+  - name: low                          # bearer simple (forme courte)
     token: ${LOW_JWT}
     ids: { userId: u-1001, orgId: o-50 }
-  - name: victim
-    token: ${VICTIM_JWT}
+
+  - name: victim                       # auth pluggable : OAuth avec refresh sur 401
     ids: { userId: u-2002, orgId: o-77 }
+    auth:
+      type: oauth
+      token: ${VICTIM_ACCESS}
+      refresh:
+        url: https://api.example.com/oauth/token
+        refresh_token: ${VICTIM_REFRESH}
+        token_field: access_token
+    csrf:                              # token CSRF recupere d'un cookie, injecte sur les verbes mutateurs
+      fetch_url: https://api.example.com/csrf-token
+      cookie: XSRF-TOKEN
+      header: X-CSRF-Token
+      methods: [POST, PUT, PATCH, DELETE]
+
 safety:
-  destructive: false                   # mettre true pour confirmer une escalade (rollback auto)
+  destructive: false                   # true pour jouer les tests mutateurs (rollback auto)
   rollback: auto
   rate_limit_rps: 0
-probes: [idor, bfla, bopla, leakage]
+
+probes: [idor, idor_dynamic, bfla, bopla, leakage, graphql]
 impact_plugins: [role_escalation]
-# bfla:                                  # optionnel : wordlist force-browse personnalisee
+
+# bfla:                                # optionnel : wordlist force-browse personnalisee
 #   wordlist: [/admin, /admin/users, /internal, /manage, /roles]
-# bopla:                                 # optionnel : champs sensibles a injecter
-#   inject_fields: { role: ADMINISTRATOR, isAdmin: true, tenantId: "*" }
-role_escalation:                       # templates {resource}/{user} a adapter a l'API cible
-  list_path: /orgs/{resource}/members
-  promote_path: /orgs/{resource}/administrators/{user}
-  rollback_path: /orgs/{resource}/members/{user}
-  role_field: role
-  admin_role: ADMINISTRATOR
+# bopla:                               # optionnel : champs sensibles a injecter
+#   inject_fields: { role: ADMINISTRATOR, isAdmin: true }
+# idor_dynamic:
+#   seq_range: 2                        # enumeration sequentielle +/- N
+
+# Plugins de confirmation DECLARATIFS (YAML, sans code)
+declarative_plugins:
+  - name: role-escalation
+    requires: { destructive: true }
+    steps:
+      - { id: promote, method: POST, url: "{base}/orgs/{orgId}/administrators/{userId}", as: low }
+      - { id: check,   method: GET,  url: "{base}/orgs/{orgId}/members", as: low }
+    validate: { step: check, status_success: true, contains: "ADMINISTRATOR" }
+    rollback:
+      - { method: DELETE, url: "{base}/orgs/{orgId}/members/{userId}", as: low }
+    severity: critical
+    cwe: CWE-269
+    owasp_api: API5:2023
+
 output:
   findings_db: findings/_incoming_dyn.json
   report_md: reports/ACCESS-MATRIX-DYN.md

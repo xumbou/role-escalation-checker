@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """Wrapper HTTP : rejeu d'une requete sous un profil donne + journal de preuves.
 
-- Strip des en-tetes sensibles captures (auth/cookie) puis injection du profil.
+- Strip des en-tetes sensibles captures (auth/cookie) puis injection via l'authenticator.
+- Re-essai unique avec refresh de token sur 401 (OAuth).
 - Garde-fou de scope a chaque appel.
 """
 import hashlib
@@ -37,28 +38,35 @@ def replay(session, cfg, req, profile, ev, label,
     if not cfg.host_allowed(url):
         ev.log(label, req["method"], url, profile.name, None, 0, note="SCOPE_BLOCKED")
         return None
-    headers = _clean_headers(req.get("headers"))
-    if profile.token:
-        headers[cfg.auth_header] = cfg.auth_prefix + profile.token
+    method = req["method"]
     body = body_override if body_override is not None else req.get("body")
-    if cfg.rate_limit_rps:
-        time.sleep(1.0 / cfg.rate_limit_rps)
-    try:
-        resp = session.request(
-            req["method"], url, headers=headers,
+
+    def _send():
+        headers = _clean_headers(req.get("headers"))
+        profile.auth.apply(session, headers, method, cfg)
+        if cfg.rate_limit_rps:
+            time.sleep(1.0 / cfg.rate_limit_rps)
+        return session.request(
+            method, url, headers=headers,
             data=body if isinstance(body, (str, bytes)) else None,
             json=body if isinstance(body, (dict, list)) else None,
             timeout=timeout, verify=not insecure)
+
+    try:
+        resp = _send()
+        if resp.status_code == 401 and profile.auth.refresh(session, cfg):
+            resp = _send()  # re-essai apres refresh du token
     except requests.RequestException as exc:
-        ev.log(label, req["method"], url, profile.name, None, 0, note="ERR:%s" % exc)
+        ev.log(label, method, url, profile.name, None, 0, note="ERR:%s" % exc)
         return None
+
     text = resp.text or ""
     rec = {
         "status": resp.status_code,
         "length": len(text),
         "body_hash": hashlib.sha1(text.encode("utf-8", "replace")).hexdigest()[:12],
         "text": text[:5000],
-        "url": url, "profile": profile.name, "method": req["method"],
+        "url": url, "profile": profile.name, "method": method,
     }
-    ev.log(label, req["method"], url, profile.name, resp.status_code, len(text))
+    ev.log(label, method, url, profile.name, resp.status_code, len(text))
     return rec

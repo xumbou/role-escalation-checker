@@ -146,9 +146,16 @@ maps: { cwe: CWE-639, owasp_api: API3:2023 }
 | **MVP** | ingestion HAR + profils YAML + moteur différentiel + sonde IDOR + plugin role-escalation + sortie `findings_db` | ✅ livré |
 | **v1** | BFLA (force-browse + verb-tamper/asymétrie) + BOPLA (mass-assignment) + oracle existence-leakage + ingestion OpenAPI | ✅ livré |
 | **v2** | couplage `access_matrix` statique→dynamique (loader générique `static_link.py`) | ✅ livré |
-| **v3 (backlog)** | énumération d'IDs avancée (séquentiel/UUID/hash crackable), plugins de confirmation déclaratifs YAML, GraphQL | à faire |
+| **v3** | **auth pluggable** (bearer/cookie/**OAuth refresh**/**CSRF**), **IDOR dynamique** (chaînage/harvest) + **séquentiel**, plugins de confirmation **déclaratifs YAML**, **GraphQL** (introspection + IDOR via variables) | ✅ livré |
+| **v4 (backlog)** | IDs encodés/hashés crackables, GraphQL mutations/BFLA, gRPC, durcissement terrain (pagination / WAF / gros HAR / throttling) | à faire |
 
-> **OpSec renforcé (v1)** : le moteur différentiel et la sonde IDOR ne rejouent **plus** les verbes mutateurs en mode non-destructif. Les sondes BFLA verb-tamper / BOPLA et le plugin role-escalation exigent explicitement `safety.destructive: true` (avec rollback).
+> **OpSec renforcé** : le moteur différentiel et la sonde IDOR ne rejouent **plus** les verbes mutateurs en mode non-destructif. Les sondes BFLA verb-tamper / BOPLA, le plugin role-escalation et les plugins déclaratifs marqués `requires.destructive` exigent `safety.destructive: true` (avec rollback). L'auth gère le **refresh de token sur 401** et l'injection **CSRF** sur les verbes mutateurs.
+
+### Modules d'auth (`auth.py`)
+`Authenticator` par profil, construit depuis le bloc `auth:` du YAML (ou `token:` legacy) :
+`bearer` (header+prefix), `cookie` (cookies de session), `oauth` (refresh sur 401 via un
+endpoint d'échange), et `csrf` (récupère un token depuis un cookie/endpoint et l'injecte sur
+POST/PUT/PATCH/DELETE). C'est le levier qui débloque les cibles réelles.
 
 ## 7. Décisions ouvertes
 1. **Maison léger** (recommandé : contrôle + intégration framework) **vs au-dessus d'Akto** (plus rapide mais lourd/couplé) ?
