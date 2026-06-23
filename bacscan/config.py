@@ -42,10 +42,18 @@ class Config:
             Profile(p["name"], _auth.build(p, g_auth), p.get("ids"))
             for p in (data.get("profiles") or [])
         ]
+        # secrets a masquer dans les sorties (tokens des profils)
+        self.secrets = [p.auth.token for p in self.profiles
+                        if getattr(p.auth, "token", None)]
         safety = data.get("safety") or {}
         self.destructive = bool(safety.get("destructive", False))
         self.rollback = safety.get("rollback", "auto")
         self.rate_limit_rps = float(safety.get("rate_limit_rps", 0) or 0)
+        self.redact = bool(safety.get("redact", True))
+        net = data.get("network") or {}
+        self.max_retries = int(net.get("max_retries", 2))
+        self.retry_backoff = float(net.get("retry_backoff", 0.5))
+        self.retry_backoff_max = float(net.get("retry_backoff_max", 8))
         self.probes = data.get("probes") or []
         self.impact_plugins = data.get("impact_plugins") or []
         self.declarative = data.get("declarative_plugins") or []
@@ -53,6 +61,7 @@ class Config:
         self.findings_db = out.get("findings_db")
         self.report_md = out.get("report_md")
         self.triage_log = out.get("triage_log")  # journal des faux positifs / triage
+        self.audit_log = out.get("audit_log")    # journal d'audit (req/rep horodatees)
         # blocs de config specifiques aux sondes/plugins
         self.plugin_conf = {k: data[k] for k in ("role_escalation",) if k in data}
         self.bfla = data.get("bfla") or {}

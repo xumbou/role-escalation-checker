@@ -17,6 +17,15 @@ def write_findings(findings, path):
         json.dump({"findings": findings}, fh, indent=2, ensure_ascii=False)
 
 
+def write_audit(events, path):
+    """Journal d'audit : toutes les requetes envoyees (horodatees) = tracabilite legale."""
+    if not path:
+        return
+    _ensure_dir(path)
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump({"events": events}, fh, indent=2, ensure_ascii=False)
+
+
 def write_report(findings, matrix, cfg, path):
     if not path:
         return

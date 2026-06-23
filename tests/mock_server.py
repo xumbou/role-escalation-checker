@@ -77,6 +77,23 @@ class Handler(BaseHTTPRequestHandler):
 
     # ----------------------------------------------------------------- GET
     def do_GET(self):
+        if self.path == "/flaky429":  # 429 au 1er appel puis 200 -> teste le retry
+            type(self).flaky = getattr(type(self), "flaky", 0) + 1
+            if type(self).flaky == 1:
+                self.send_response(429)
+                self.send_header("Retry-After", "0")
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+                return
+            return self._send(200, {"ok": True})
+        if self.path == "/always500":
+            return self._send(500)
+        if self.path == "/redirect":  # 302 vers une ressource du meme hote
+            self.send_response(302)
+            self.send_header("Location", "/public/banner")
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
         if self.path == "/public/banner":  # ressource PUBLIQUE (pas d'auth) -> piege a FP
             return self._send(200, {"banner": "welcome"})
         if not self._authed():
@@ -173,6 +190,7 @@ class Handler(BaseHTTPRequestHandler):
 
 def start(host="127.0.0.1", port=0):
     Handler.state = make_state()
+    Handler.flaky = 0
     httpd = ThreadingHTTPServer((host, port), Handler)
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
     return httpd

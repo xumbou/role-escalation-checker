@@ -79,6 +79,7 @@ def main(argv=None):
     res = run(cfg, reqs, insecure=args.insecure, timeout=args.timeout)
     report.write_findings(res["findings"], cfg.findings_db)
     report.write_report(res["findings"], res["matrix"], cfg, cfg.report_md)
+    report.write_audit(res["evidence"], cfg.audit_log)
 
     conf, fps, inc = res["confirmed"], res["false_positives"], res["inconclusive"]
     print("[bacscan] %d requete(s), %d finding(s) -> %d confirme(s), %d faux positif(s), %d inconclusive"

@@ -38,6 +38,11 @@ safety:
   destructive: false                   # true pour jouer les tests mutateurs (rollback auto)
   rollback: auto
   rate_limit_rps: 0
+  redact: true                         # masque tokens/emails/mots de passe dans les sorties
+network:
+  max_retries: 2                       # retries sur 429 (Retry-After) / 5xx / erreurs reseau
+  retry_backoff: 0.5
+  retry_backoff_max: 8
 
 probes: [idor, idor_dynamic, bfla, bopla, leakage, graphql]
 impact_plugins: [role_escalation]
@@ -67,3 +72,4 @@ output:
   findings_db: findings/_incoming_dyn.json
   report_md: reports/ACCESS-MATRIX-DYN.md
   triage_log: reports/triage.log     # journal des faux positifs (raison + categorie)
+  audit_log: reports/audit.json      # toutes les requetes envoyees (horodatees) = tracabilite
