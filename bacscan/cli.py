@@ -48,7 +48,10 @@ def _group(findings):
             out.append(fs[0])
             continue
         urls = [(f.get("request") or {}).get("url") for f in fs]
+        rank = {"critical": 3, "high": 2, "medium": 1, "low": 0}
         agg = dict(fs[0])
+        agg["severity"] = max((f.get("severity") for f in fs),
+                              key=lambda s: rank.get(s, 0))  # garde la severite max du groupe
         agg["title"] = "%s sur %d endpoints (groupes): %s ..." % (t, len(fs), urls[0])
         agg["grouped_urls"] = urls
         agg["request"] = {"method": "*", "url": "%d endpoints" % len(fs)}

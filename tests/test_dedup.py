@@ -46,6 +46,13 @@ def main():
         aa2 = [f for f in res2["findings"] if f["type"] == "anonymous-access"]
         assert len(aa2) == 1 and aa2[0].get("grouped_urls"), ("grouping KO", aa2)
         assert len(aa2[0]["grouped_urls"]) == 2, aa2[0].get("grouped_urls")
+
+        # le grouping garde la severite MAX (HIGH de /profile + LOW de /profile_lite)
+        mixed = [{"method": "GET", "url": base + p, "headers": {}, "body": None}
+                 for p in ["/profile", "/profile_lite"]]
+        res3 = cli.run(_cfg(base, group=True), mixed)
+        exc = [f for f in res3["findings"] if f["type"] == "excessive-data-exposure"]
+        assert len(exc) == 1 and exc[0]["severity"] == "high", ("severite max KO", exc)
     finally:
         httpd.shutdown()
     print("[OK] dedup (doublon strict supprime) + grouping (N endpoints -> 1 finding agrege)")
