@@ -1,0 +1,8 @@
+# Evidence logs may contain tokens / real targets -- never commit them
+evidence_*.json
+
+__pycache__/
+*.pyc
+.venv/
+venv/
+.env

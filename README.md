@@ -1,0 +1,103 @@
+# role-escalation-checker
+
+Active checker for a **Broken Access Control / privilege-escalation** class of
+vulnerability on REST APIs that expose a *"promote a user to an administrative
+role on a resource"* endpoint, e.g.:
+
+```
+POST {base}/{resource}/administrators/{userId}      (often with no body)
+```
+
+If the backend does not re-verify that the caller is **already** a legitimate
+administrator of *that specific resource*, an authenticated low-privilege user
+may escalate:
+
+- **Vertical** — promote themselves to admin of their own resource;
+- **Horizontal (IDOR)** — promote themselves on *someone else's* resource by
+  changing the resource id in the path.
+
+Maps to **CWE-269** (Improper Privilege Management) + **CWE-639** (IDOR),
+**OWASP WSTG-ATHZ-02 / ATHZ-04**, and OWASP Top 10 *Broken Access Control*.
+
+> ⚠️ **Authorized use only.** This is an active testing tool. Run it **only**
+> against systems you are explicitly authorized to test — your own lab, a CTF,
+> or a signed penetration-testing engagement. Unauthorized use against
+> third-party systems is illegal.
+
+## Why it is safe to use responsibly
+
+- **Non-destructive by default.** The mutating promotion request is sent only
+  with `--exploit`, and the tool **rolls the state back automatically**.
+- **Scope guard.** `--allow-host` is **required**; any other host is refused
+  before a single request leaves your machine.
+- **IDOR observes the status code only.** On a third-party resource the tool
+  reads/alters nothing — the HTTP response code is the proof.
+- **Methodology, not just a 200.** It establishes a baseline, runs controls
+  (no-auth → expect 401, bogus-resource → 404/403), tests the escalation, then
+  **confirms the real effect** (did the role actually become admin?).
+
+## Install
+
+```bash
+pip install requests
+```
+
+## Usage
+
+Safe phases only (no mutation — baseline + controls):
+
+```bash
+python tools/check_role_escalation.py \
+  --base-url https://api.lab.local --allow-host api.lab.local \
+  --jwt eyJ... --user-id u-123 --resource-id r-456
+```
+
+Full vertical test (mutating, auto rollback) + IDOR (status code only):
+
+```bash
+python tools/check_role_escalation.py \
+  --base-url https://api.lab.local --allow-host api.lab.local \
+  --jwt eyJ... --user-id u-123 --resource-id r-456 \
+  --exploit --idor-resource r-OTHER
+```
+
+### Adapting to your target API
+
+Paths are templated with `{resource}` and `{user}`. Override the defaults to
+match the API under test:
+
+| Option | Default | Purpose |
+|---|---|---|
+| `--list-path` | `/{resource}/members` | GET: list members and their roles |
+| `--promote-path` | `/{resource}/administrators/{user}` | the escalation endpoint |
+| `--promote-method` | `POST` | promotion HTTP method |
+| `--promote-body` | *(none)* | optional promotion body |
+| `--role-field` | `role` | member field holding the role |
+| `--admin-role` | `ADMINISTRATOR` | role value meaning "admin" |
+| `--rollback-method` | `DELETE` | how to undo the promotion |
+| `--rollback-path` | `/{resource}/members/{user}` | rollback endpoint |
+| `--rollback-body` | *(none)* | optional rollback body (e.g. JSON-Patch) |
+
+JSON-Patch style rollback example:
+
+```bash
+python tools/check_role_escalation.py ... --exploit \
+  --rollback-method PATCH --rollback-path /{resource} \
+  --rollback-body '[{"op":"remove","path":"/members/{user}"}]'
+```
+
+## Verdict matrix
+
+| Vertical | Impact | IDOR | Verdict |
+|---|---|---|---|
+| 2xx | role = admin | 2xx | **CRITICAL** (escalation + IDOR) |
+| 2xx | role = admin | 4xx | **HIGH** (vertical real, ownership OK) |
+| 2xx | no effect | — | **INVESTIGATE** (200 no-op?) |
+| 401/403 | — | — | **REFUTED** (server enforces) |
+
+Exit code is `1` when a vulnerability is materialized (CRITICAL/HIGH), `0`
+otherwise. Every run writes a timestamped JSON evidence log (`evidence_*.json`).
+
+## License
+
+MIT — see [LICENSE](LICENSE).
