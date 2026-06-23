@@ -38,6 +38,7 @@ GGRANTS = re.compile(r"^/svc/orgs/([^/]+)/grants/?$")
 GGRANT = re.compile(r"^/svc/orgs/([^/]+)/grants/([^/]+)/?$")
 E_RE = re.compile(r"^/e/([^/]+)/?$")   # objet a ID base64 (BOLA)
 H_RE = re.compile(r"^/h/([^/]+)/?$")   # objet a ID md5 (BOLA)
+PLISTITEM = re.compile(r"^/plist/([^/]+)/?$")  # objet detail (BOLA) pour test pagination
 
 SECRETS = {"s-1"}
 
@@ -141,6 +142,14 @@ class Handler(BaseHTTPRequestHandler):
         m = E_RE.match(self.path) or H_RE.match(self.path)
         if m:  # VULN BOLA : objet accessible par ID encode/hashe sans verif d'ownership
             return self._send(200, {"id": m.group(1), "data": "obj"})
+        if self.path == "/plist":  # liste paginee (page 1)
+            return self._send(200, {"items": [{"docId": "d-1", "owner": "u-2"}],
+                                    "next": "/plist2"})
+        if self.path == "/plist2":  # page 2
+            return self._send(200, {"items": [{"docId": "d-9", "owner": "u-2"}]})
+        m = PLISTITEM.match(self.path)
+        if m:  # VULN BOLA : detail accessible
+            return self._send(200, {"docId": m.group(1), "data": "obj"})
         m = SECRET.match(self.path)
         if m:  # existence leakage : 403 si existe, 404 sinon
             return self._send(403 if m.group(1) in SECRETS else 404)

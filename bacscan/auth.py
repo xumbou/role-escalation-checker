@@ -28,7 +28,6 @@ class Authenticator:
         self.cookies = cookies or {}
         self.refresh_spec = refresh or {}
         self.csrf = csrf or {}
-        self._csrf_primed = False
 
     def is_anon(self):
         return self.kind == "none"
@@ -48,8 +47,13 @@ class Authenticator:
                     headers[self.csrf.get("header", "X-CSRF-Token")] = tok
 
     def _csrf_token(self, session, cfg):
+        cookie_name = self.csrf.get("cookie")
+        # amorcage PAR SESSION (idempotent, thread-safe) : si le cookie n'est pas
+        # encore present dans cette session, on va le chercher.
+        if cookie_name and session.cookies.get(cookie_name):
+            return session.cookies.get(cookie_name)
         fetch_url = self.csrf.get("fetch_url")
-        if fetch_url and not self._csrf_primed and cfg.host_allowed(fetch_url):
+        if fetch_url and cfg.host_allowed(fetch_url):
             h = {}
             if self.token:
                 h[self.header] = self.prefix + self.token
@@ -57,8 +61,6 @@ class Authenticator:
                 session.get(fetch_url, headers=h, timeout=15)
             except requests.RequestException:
                 pass
-            self._csrf_primed = True
-        cookie_name = self.csrf.get("cookie")
         if cookie_name:
             return session.cookies.get(cookie_name)
         return self.csrf.get("token")

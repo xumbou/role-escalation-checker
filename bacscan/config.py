@@ -54,6 +54,8 @@ class Config:
         self.max_retries = int(net.get("max_retries", 2))
         self.retry_backoff = float(net.get("retry_backoff", 0.5))
         self.retry_backoff_max = float(net.get("retry_backoff_max", 8))
+        self.max_workers = max(1, int(net.get("max_workers", 1)))  # concurrence matrice
+        self.max_requests = int(net.get("max_requests", 0))        # cap global (0 = illimite)
         self.probes = data.get("probes") or []
         self.impact_plugins = data.get("impact_plugins") or []
         self.sensitive_fields = data.get("sensitive_fields") or []  # champs custom pour excessive-data

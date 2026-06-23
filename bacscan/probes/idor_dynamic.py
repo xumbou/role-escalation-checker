@@ -13,6 +13,7 @@ import base64
 import hashlib
 import json
 import re
+from urllib.parse import urlsplit
 
 import requests
 
@@ -64,6 +65,27 @@ def _crack_md5_int(seg, max_n):
     return None
 
 
+def _next_link(body):
+    """Extrait un lien de page suivante (pagination) de formats courants."""
+    if not isinstance(body, dict):
+        return None
+    for k in ("next", "next_url", "nextPage", "next_page"):
+        if isinstance(body.get(k), str):
+            return body[k]
+    for lk in ("_links", "links"):
+        links = body.get(lk)
+        if isinstance(links, dict):
+            nl = links.get("next")
+            if isinstance(nl, str):
+                return nl
+            if isinstance(nl, dict) and isinstance(nl.get("href"), str):
+                return nl["href"]
+    paging = body.get("paging")
+    if isinstance(paging, dict) and isinstance(paging.get("next"), str):
+        return paging["next"]
+    return None
+
+
 def run(cfg, requests_list, ev, **kw):
     attacker = cfg.attacker()
     if not attacker:
@@ -79,32 +101,41 @@ def run(cfg, requests_list, ev, **kw):
             continue
         url = req["url"]
 
-        # (1) harvest depuis la reponse de l'attaquant
-        rec = H.replay(s, cfg, req, attacker, ev, "dyn:list:%s" % url, **kw)
-        if rec and oracles.is_success(rec) and rec.get("text"):
+        # (1) harvest depuis les reponses de l'attaquant, AVEC pagination (liens 'next')
+        items, page_url, pages = [], url, 0
+        max_pages = int(cfg.idor_dynamic.get("max_pages", 1))
+        origin = "%s://%s" % (urlsplit(url).scheme, urlsplit(url).netloc)
+        while page_url and pages < max_pages:
+            prec = H.replay(s, cfg, {"method": "GET", "url": page_url, "headers": {},
+                                     "body": None}, attacker, ev, "dyn:list:%s" % page_url, **kw)
+            pages += 1
+            if not (prec and oracles.is_success(prec) and prec.get("text")):
+                break
             try:
-                items = HV.harvest(json.loads(rec["text"]))
+                body = json.loads(prec["text"])
             except ValueError:
-                items = []
-            for it in items:
-                owner = it.get("owner")
-                if owner and my_uid and owner == my_uid:
-                    continue  # objet de l'attaquant lui-meme
-                durl = _detail_url(url, it["val"])
-                if durl in seen:
-                    continue
-                seen.add(durl)
-                dr = H.replay(s, cfg, {"method": "GET", "url": durl, "headers": {},
-                                       "body": None}, attacker, ev,
-                              "dyn:obj:%s" % durl, **kw)
-                if oracles.is_success(dr):
-                    findings.append({
-                        "type": "idor-dynamic", "severity": "high",
-                        "cwe": "CWE-639", "owasp_api": "API1:2023",
-                        "title": "IDOR dynamique: %s (owner=%s) accessible par %s"
-                                 % (durl, owner, attacker.name),
-                        "request": {"method": "GET", "url": durl},
-                        "attacker": attacker.name, "evidence": dr})
+                break
+            items += HV.harvest(body)
+            nxt = _next_link(body)
+            page_url = (origin + nxt if nxt.startswith("/") else nxt) if nxt else None
+        for it in items:
+            owner = it.get("owner")
+            if owner and my_uid and owner == my_uid:
+                continue  # objet de l'attaquant lui-meme
+            durl = _detail_url(url, it["val"])
+            if durl in seen:
+                continue
+            seen.add(durl)
+            dr = H.replay(s, cfg, {"method": "GET", "url": durl, "headers": {},
+                                   "body": None}, attacker, ev, "dyn:obj:%s" % durl, **kw)
+            if oracles.is_success(dr):
+                findings.append({
+                    "type": "idor-dynamic", "severity": "high",
+                    "cwe": "CWE-639", "owasp_api": "API1:2023",
+                    "title": "IDOR dynamique: %s (owner=%s) accessible par %s"
+                             % (durl, owner, attacker.name),
+                    "request": {"method": "GET", "url": durl},
+                    "attacker": attacker.name, "evidence": dr})
 
         # (2) enumeration sequentielle sur le dernier segment
         base, _, last = url.rstrip("/").rpartition("/")

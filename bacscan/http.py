@@ -90,6 +90,10 @@ def replay(session, cfg, req, profile, ev, label,
         ev.log(label, req["method"], url, profile.name, None, 0, note="SCOPE_BLOCKED")
         return None
     method = req["method"]
+    # cap global de requetes (troncature EXPLICITE, jamais silencieuse)
+    if getattr(cfg, "max_requests", 0) and len(ev.events) >= cfg.max_requests:
+        ev.log(label, method, url, profile.name, None, 0, note="BUDGET_EXCEEDED")
+        return None
     body = body_override if body_override is not None else req.get("body")
     max_retries = getattr(cfg, "max_retries", 2)
     refreshed = False

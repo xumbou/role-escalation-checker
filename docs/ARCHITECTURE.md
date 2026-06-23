@@ -148,7 +148,8 @@ maps: { cwe: CWE-639, owasp_api: API3:2023 }
 | **v2** | couplage `access_matrix` statique→dynamique (loader générique `static_link.py`) | ✅ livré |
 | **v3** | **auth pluggable** (bearer/cookie/**OAuth refresh**/**CSRF**), **IDOR dynamique** (chaînage/harvest) + **séquentiel**, plugins de confirmation **déclaratifs YAML**, **GraphQL** (introspection + IDOR via variables) | ✅ livré |
 | **v3.1** | durcissement réseau (retry 429/5xx + Retry-After, redirects, erreurs explicites), redaction PII, audit log horodaté, triage des faux positifs | ✅ livré |
-| **v4 (backlog)** | **sonde excessive-data-exposure** (champs sensibles dans les réponses) + **heuristiques d'ID enrichies** (clés métier) + dedup — *priorités issues du [field test VAmPI](FIELD-TEST-vampi.md)* ; puis IDs hashés, GraphQL mutations/BFLA, gRPC, pagination/WAF/gros HAR | à faire |
+| **v4** | excessive-data-exposure, heuristiques d'ID (clés métier + **base64/MD5 énumérables**), dedup/grouping, **GraphQL mutations/BFLA**, perf (**concurrence/cap/pagination**) — *priorités issues du [field test VAmPI](FIELD-TEST-vampi.md)* | ✅ livré |
+| **v5 (backlog)** | IDs hashés non-séquentiels (wordlist), GraphQL field-level authz, throttling adaptatif/WAF-evasion ; **gRPC / WebSocket hors scope** | à faire |
 
 > **OpSec renforcé** : le moteur différentiel et la sonde IDOR ne rejouent **plus** les verbes mutateurs en mode non-destructif. Les sondes BFLA verb-tamper / BOPLA, le plugin role-escalation et les plugins déclaratifs marqués `requires.destructive` exigent `safety.destructive: true` (avec rollback). L'auth gère le **refresh de token sur 401** et l'injection **CSRF** sur les verbes mutateurs.
 

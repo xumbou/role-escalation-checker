@@ -43,9 +43,17 @@ network:
   max_retries: 2                       # retries sur 429 (Retry-After) / 5xx / erreurs reseau
   retry_backoff: 0.5
   retry_backoff_max: 8
+  max_workers: 1                       # concurrence de la matrice (>1 pour accelerer)
+  max_requests: 0                      # cap global de requetes (0 = illimite ; troncature loggee)
 
 probes: [idor, idor_dynamic, bfla, bopla, leakage, graphql]
 impact_plugins: [role_escalation]
+# group_findings: true                 # regrouper les findings bruyants (broken-auth) en 1
+# sensitive_fields: [accountNumber]    # champs custom pour excessive-data-exposure
+# idor_dynamic:
+#   seq_range: 2                        # enumeration sequentielle +/- N
+#   max_pages: 3                        # pagination : suivre N pages (liens 'next')
+#   hash_crack_max: 5000               # borne du crack MD5-d'entier
 
 # bfla:                                # optionnel : wordlist force-browse personnalisee
 #   wordlist: [/admin, /admin/users, /internal, /manage, /roles]
