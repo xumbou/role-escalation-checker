@@ -176,6 +176,11 @@ def c_hardening():
     assert test_hardening.main() == 0
 
 
+def c_origin_case():
+    import test_finding_tiers
+    assert test_finding_tiers.main() == 0
+
+
 def c_pyflakes():
     import importlib.util
     import subprocess
@@ -200,7 +205,8 @@ def main():
     run("7. scope-guard", c_scope_guard)
     run("8. triage (faux positifs + log)", c_triage)
     run("9. hardening (retry/redirect/erreurs/redaction/audit)", c_hardening)
-    run("10. pyflakes (code mort)", c_pyflakes)
+    run("10. cas d'origine (auto-nomination admin, forme custom)", c_origin_case)
+    run("11. pyflakes (code mort)", c_pyflakes)
 
     fails = [r for r in RESULTS if not r[1]]
     print("\n" + "=" * 60)

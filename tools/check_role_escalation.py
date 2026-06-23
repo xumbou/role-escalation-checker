@@ -208,6 +208,10 @@ def normalize_members(data):
             for v in emb.values():
                 if isinstance(v, list):
                     return [e for e in v if isinstance(e, dict)]
+        # fallback generique : toute valeur liste-de-dicts (cle metier non standard)
+        for v in data.values():
+            if isinstance(v, list) and any(isinstance(e, dict) for e in v):
+                return [e for e in v if isinstance(e, dict)]
         if "role" in data:
             return [data]
     return []

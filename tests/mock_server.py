@@ -31,6 +31,11 @@ USER = re.compile(r"^/users/([^/]+)/?$")
 DOCUMENTS = re.compile(r"^/documents/?$")
 DOCUMENT = re.compile(r"^/documents/([^/]+)/?$")
 INVOICE = re.compile(r"^/invoices/([^/]+)/?$")
+# Forme "promotion admin sans corps + role dans une liste imbriquee a cle metier custom"
+# (reproduit la mecanique du cas d'origine : POST sans body, role lu dans une cle non standard).
+GADMIN = re.compile(r"^/svc/orgs/([^/]+)/admins/([^/]+)/?$")
+GGRANTS = re.compile(r"^/svc/orgs/([^/]+)/grants/?$")
+GGRANT = re.compile(r"^/svc/orgs/([^/]+)/grants/([^/]+)/?$")
 
 SECRETS = {"s-1"}
 
@@ -123,6 +128,11 @@ class Handler(BaseHTTPRequestHandler):
             members = self.state.get(m.group(1), {})
             return self._send(200, {"members": [
                 {"userId": u, "role": d["role"]} for u, d in members.items()]})
+        m = GGRANTS.match(self.path)
+        if m:  # role dans une cle metier custom "grants" / champ "privilege"
+            grants = self.orgs2.get(m.group(1), {})
+            return self._send(200, {"grants": [
+                {"principal": u, "privilege": d["privilege"]} for u, d in grants.items()]})
         m = SECRET.match(self.path)
         if m:  # existence leakage : 403 si existe, 404 sinon
             return self._send(403 if m.group(1) in SECRETS else 404)
@@ -154,6 +164,10 @@ class Handler(BaseHTTPRequestHandler):
             role = body.get("role", "CONTRIBUTOR")
             self.state.setdefault(m.group(1), {})[user] = {"role": role}
             return self._send(201, {"userId": user, "role": role})
+        m = GADMIN.match(self.path)
+        if m:  # VULN privesc, POST SANS corps (mecanique du cas d'origine)
+            self.orgs2.setdefault(m.group(1), {})[m.group(2)] = {"privilege": "ADMINISTRATOR"}
+            return self._send(204)
         return self._send(404)
 
     def _graphql(self, body):
@@ -185,12 +199,18 @@ class Handler(BaseHTTPRequestHandler):
         if m:
             self.state.get(m.group(1), {}).pop(m.group(2), None)
             return self._send(204)
+        m = GGRANT.match(self.path)
+        if m:  # rollback
+            self.orgs2.get(m.group(1), {}).pop(m.group(2), None)
+            return self._send(204)
         return self._send(404)
 
 
 def start(host="127.0.0.1", port=0):
     Handler.state = make_state()
     Handler.flaky = 0
+    # etat "grants" : role initial non-admin, reponse a cle metier custom
+    Handler.orgs2 = {"o-mine": {"u-me": {"privilege": "REQUESTER"}}}
     httpd = ThreadingHTTPServer((host, port), Handler)
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
     return httpd

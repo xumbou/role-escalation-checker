@@ -30,13 +30,17 @@ def _render(tpl, resource, user):
 
 def _find_role(data, user_id, role_field):
     uid = str(user_id)
-    if isinstance(data, dict):
-        items = data.get("members") or data.get("users") or data.get("results") or []
-    elif isinstance(data, list):
+    if isinstance(data, list):
         items = data
+    elif isinstance(data, dict):
+        items = data.get("members") or data.get("users") or data.get("results")
+        if not isinstance(items, list):
+            # fallback generique : 1re valeur liste-de-dicts (cle metier non standard)
+            items = next((v for v in data.values()
+                          if isinstance(v, list) and any(isinstance(e, dict) for e in v)), [])
     else:
         items = []
-    for e in items:
+    for e in items or []:
         if isinstance(e, dict) and uid in json.dumps(e, ensure_ascii=False):
             return e.get(role_field)
     return None
