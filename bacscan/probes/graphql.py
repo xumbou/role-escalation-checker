@@ -11,6 +11,8 @@ import json
 import requests
 
 from .. import http as H
+from .. import auth as A
+from ..config import Profile
 
 INTROSPECTION = {"query": "{__schema{types{name}}}"}
 _AUTHZ_WORDS = ("permission", "unauthor", "forbidden", "not allowed", "denied")
@@ -97,4 +99,25 @@ def run(cfg, requests_list, ev, **kw):
                         "request": {"method": "POST", "url": req["url"]},
                         "attacker": attacker.name, "victim": victim.name,
                         "evidence": rec})
+
+    # 3) BFLA : une mutation executable SANS authentification (gate destructive)
+    if cfg.destructive:
+        anon = Profile("_anon", A.anon())
+        seen = set()
+        for req in requests_list:
+            if not _is_gql(req):
+                continue
+            obj = _body_obj(req)
+            query = (obj or {}).get("query", "") if isinstance(obj, dict) else ""
+            if "mutation" not in query.lower() or req["url"] in seen:
+                continue
+            seen.add(req["url"])
+            rec = H.replay(s, cfg, req, anon, ev, "gql:bfla:%s" % req["url"], **kw)
+            if _gql_success(rec):
+                findings.append({
+                    "type": "graphql-bfla", "severity": "high",
+                    "cwe": "CWE-285", "owasp_api": "API5:2023",
+                    "title": "Mutation GraphQL executable sans authentification sur %s" % req["url"],
+                    "request": {"method": "POST", "url": req["url"]},
+                    "evidence": rec})
     return findings

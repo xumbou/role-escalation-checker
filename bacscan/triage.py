@@ -89,6 +89,8 @@ def _assess(cfg, f, session, anon, ev, **kw):
         return "confirmed", "champ(s) sensible(s) present(s) dans la reponse", "info", {}
     if t == "graphql-idor":
         return "confirmed", "data non-nul sans erreur d'autorisation (oracle GraphQL)", "access", {}
+    if t == "graphql-bfla":
+        return "confirmed", "mutation GraphQL executee sans authentification", "impact", {}
     if t == "bfla-asymmetry":
         return "confirmed", "asymetrie de verbes detectee (oracle)", "access", {}
     if t == "bopla":

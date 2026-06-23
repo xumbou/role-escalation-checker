@@ -152,6 +152,13 @@ maps: { cwe: CWE-639, owasp_api: API3:2023 }
 
 > **OpSec renforcé** : le moteur différentiel et la sonde IDOR ne rejouent **plus** les verbes mutateurs en mode non-destructif. Les sondes BFLA verb-tamper / BOPLA, le plugin role-escalation et les plugins déclaratifs marqués `requires.destructive` exigent `safety.destructive: true` (avec rollback). L'auth gère le **refresh de token sur 401** et l'injection **CSRF** sur les verbes mutateurs.
 
+### Protocoles couverts
+- **REST/JSON** : complet (toutes les sondes).
+- **GraphQL** : introspection + IDOR par variables + **BFLA mutation** (mutation rejouée sans auth).
+- **SOAP/XML** : pris en charge par le **moteur différentiel générique** (un POST XML est rejoué
+  sous chaque profil → BAC détectable) ; pas de sonde dédiée au parsing XML.
+- **gRPC / WebSocket** : **non supportés** (binaire/HTTP2/persistant — hors du modèle rejeu req/rép HTTP).
+
 ### Triage & faux positifs (`triage.py`)
 Étage post-détection : chaque finding est re-testé puis tagué `confirmed` / `false_positive`
 / `inconclusive` avec une **raison** et une **catégorie** :

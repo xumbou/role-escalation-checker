@@ -153,10 +153,10 @@ class Handler(BaseHTTPRequestHandler):
             if body.get("refresh_token"):
                 return self._send(200, {"access_token": "fresh-1"})
             return self._send(401)
+        if self.path == "/graphql":  # GraphQL : aucune auth sur les mutations (VULN BFLA)
+            return self._graphql(self._read_json())
         if not self._authed():
             return self._send(401)
-        if self.path == "/graphql":
-            return self._graphql(self._read_json())
         if self.path == "/csrf-protected":
             if self.headers.get("X-CSRF-Token") == "csrf123":
                 return self._send(200, {"ok": True})
@@ -182,6 +182,8 @@ class Handler(BaseHTTPRequestHandler):
         q = body.get("query", "") if isinstance(body, dict) else ""
         if "__schema" in q:  # VULN : introspection activee
             return self._send(200, {"data": {"__schema": {"types": [{"name": "User"}]}}})
+        if "mutation" in q.lower():  # VULN BFLA : mutation executee sans auth/role
+            return self._send(200, {"data": {"ok": True}})
         if "user" in q:  # VULN BOLA : aucune verif d'ownership sur l'id
             vid = (body.get("variables") or {}).get("id")
             return self._send(200, {"data": {"user": {"id": vid, "email": "x@y.z"}}})

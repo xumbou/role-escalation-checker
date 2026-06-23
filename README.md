@@ -53,6 +53,10 @@ python -m bacscan.cli --config examples/engagement.example.yaml --har traffic.ha
 **Pluggable auth** (per profile): `bearer`, `cookie`, `oauth` (**token refresh on 401**),
 and `csrf` (token pulled from a cookie/endpoint, injected on mutating verbs).
 
+**Protocols**: REST/JSON (full); GraphQL (introspection + variable-IDOR + mutation BFLA);
+SOAP/XML rides the generic differential engine (POST XML replayed per profile, no dedicated
+probe); **gRPC and WebSocket are not supported** (binary/HTTP2/persistent — out of scope).
+
 **Safe by default**: mutating requests run only with `safety.destructive: true` (auto rollback).
 
 **False-positive triage**: every finding is re-checked for exploitability and tagged
