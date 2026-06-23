@@ -1,19 +1,21 @@
 # -*- coding: utf-8 -*-
 """bacscan - orchestrateur + CLI.
 
-Pipeline : ingestion HAR -> moteur differentiel -> oracles -> sondes -> plugins
-de confirmation -> findings + rapport. Usage autorise uniquement.
+Pipeline : ingestion (HAR/OpenAPI) [+ candidats statiques] -> moteur differentiel
+-> oracles -> sondes (IDOR/BFLA/BOPLA/leakage) -> plugins de confirmation
+-> findings + rapport. Usage autorise uniquement.
 """
 import argparse
 import sys
 
 from . import config as C
-from . import ingest, engine, report, oracles
-from .probes import idor
+from . import ingest, engine, report, oracles, static_link
+from .probes import idor, bfla, bopla, leakage
 from .plugins import role_escalation
 from .http import Evidence
 
-PROBES = {"idor": idor.run}
+PROBES = {"idor": idor.run, "bfla": bfla.run, "bopla": bopla.run,
+          "leakage": leakage.run}
 PLUGINS = {"role_escalation": role_escalation.run}
 
 
@@ -38,15 +40,38 @@ def main(argv=None):
     p = argparse.ArgumentParser(
         description="bacscan - scanner d'access control (BAC/IDOR). Usage autorise uniquement.")
     p.add_argument("--config", required=True, help="YAML d'engagement")
-    p.add_argument("--har", required=True, help="Trafic capte (HAR)")
+    p.add_argument("--har", help="Trafic capte (HAR)")
+    p.add_argument("--openapi", help="Spec OpenAPI 3 (JSON/YAML)")
+    p.add_argument("--access-matrix", dest="access_matrix",
+                   help="access_matrix.json (analyse statique) -> candidats prioritaires")
     p.add_argument("--insecure", action="store_true", help="Ne pas verifier le TLS")
     p.add_argument("--timeout", type=int, default=20)
     args = p.parse_args(argv)
 
     cfg = C.load_config(args.config)
-    reqs = [r for r in ingest.from_har(args.har) if cfg.host_allowed(r["url"])]
-    res = run(cfg, reqs, insecure=args.insecure, timeout=args.timeout)
+    sourced = []
+    if args.har:
+        sourced += ingest.from_har(args.har)
+    if args.openapi:
+        sourced += ingest.from_openapi(args.openapi, base_url=cfg.base_url)
+    if args.access_matrix:
+        cand = static_link.load_candidates(args.access_matrix, cfg.base_url)
+        print("[bacscan] %d candidat(s) issus de l'analyse statique" % len(cand))
+        sourced += cand
 
+    # dedup (method, url) + filtre de scope
+    seen, reqs = set(), []
+    for r in sourced:
+        k = (r["method"], r["url"])
+        if k in seen or not cfg.host_allowed(r["url"]):
+            continue
+        seen.add(k)
+        reqs.append(r)
+    if not reqs:
+        print("[bacscan] aucune requete en scope (fournir --har et/ou --openapi)")
+        return 2
+
+    res = run(cfg, reqs, insecure=args.insecure, timeout=args.timeout)
     report.write_findings(res["findings"], cfg.findings_db)
     report.write_report(res["findings"], res["matrix"], cfg, cfg.report_md)
 

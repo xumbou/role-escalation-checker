@@ -4,11 +4,15 @@
 Pour chaque requete captee contenant un id appartenant au profil attaquant,
 on substitue l'id homologue d'un autre profil (victime) et on rejoue sous le
 token de l'attaquant. Un 2xx = acces a la ressource d'autrui (CWE-639 / API1:2023).
+
+Non-destructif par defaut : les verbes mutateurs ne sont rejoues qu'avec destructive.
 """
 import requests
 
 from .. import http as H
 from .. import oracles
+
+SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
 
 
 def _swap(text, old, new):
@@ -24,6 +28,8 @@ def run(cfg, requests_list, ev, **kw):
     others = [p for p in cfg.profiles if p is not attacker and p.ids]
     findings = []
     for i, req in enumerate(requests_list):
+        if req["method"] not in SAFE_METHODS and not cfg.destructive:
+            continue  # non-destructif : on ne rejoue pas les verbes mutateurs
         url = req["url"]
         body = req["body"] if isinstance(req.get("body"), str) else None
         for key, my_val in attacker.ids.items():

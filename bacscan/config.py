@@ -52,8 +52,10 @@ class Config:
         out = data.get("output") or {}
         self.findings_db = out.get("findings_db")
         self.report_md = out.get("report_md")
-        # blocs de config specifiques aux plugins (ex: role_escalation)
+        # blocs de config specifiques aux plugins/sondes
         self.plugin_conf = {k: data[k] for k in ("role_escalation",) if k in data}
+        self.bfla = data.get("bfla") or {}
+        self.bopla = data.get("bopla") or {}
         self._validate()
 
     def _validate(self):

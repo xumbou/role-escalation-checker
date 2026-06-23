@@ -141,11 +141,14 @@ maps: { cwe: CWE-639, owasp_api: API3:2023 }
 
 ## 6. Roadmap
 
-| Étape | Contenu |
-|---|---|
-| **MVP** | ingestion HAR + profils YAML + moteur différentiel + sonde IDOR + plugin role-escalation + sortie `findings_db` |
-| **v1** | BFLA + BOPLA + oracles arXiv (asymétrie, existence leakage) + ingestion OpenAPI |
-| **v2** | couplage `access_matrix` (statique→dynamique) + verb-tamper + énumération d'IDs avancée (séquentiel/UUID/hash) |
+| Étape | Contenu | Statut |
+|---|---|---|
+| **MVP** | ingestion HAR + profils YAML + moteur différentiel + sonde IDOR + plugin role-escalation + sortie `findings_db` | ✅ livré |
+| **v1** | BFLA (force-browse + verb-tamper/asymétrie) + BOPLA (mass-assignment) + oracle existence-leakage + ingestion OpenAPI | ✅ livré |
+| **v2** | couplage `access_matrix` statique→dynamique (loader générique `static_link.py`) | ✅ livré |
+| **v3 (backlog)** | énumération d'IDs avancée (séquentiel/UUID/hash crackable), plugins de confirmation déclaratifs YAML, GraphQL | à faire |
+
+> **OpSec renforcé (v1)** : le moteur différentiel et la sonde IDOR ne rejouent **plus** les verbes mutateurs en mode non-destructif. Les sondes BFLA verb-tamper / BOPLA et le plugin role-escalation exigent explicitement `safety.destructive: true` (avec rollback).
 
 ## 7. Décisions ouvertes
 1. **Maison léger** (recommandé : contrôle + intégration framework) **vs au-dessus d'Akto** (plus rapide mais lourd/couplé) ?

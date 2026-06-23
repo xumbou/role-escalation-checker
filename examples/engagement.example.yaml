@@ -21,8 +21,12 @@ safety:
   destructive: false                   # mettre true pour confirmer une escalade (rollback auto)
   rollback: auto
   rate_limit_rps: 0
-probes: [idor]
+probes: [idor, bfla, bopla, leakage]
 impact_plugins: [role_escalation]
+# bfla:                                  # optionnel : wordlist force-browse personnalisee
+#   wordlist: [/admin, /admin/users, /internal, /manage, /roles]
+# bopla:                                 # optionnel : champs sensibles a injecter
+#   inject_fields: { role: ADMINISTRATOR, isAdmin: true, tenantId: "*" }
 role_escalation:                       # templates {resource}/{user} a adapter a l'API cible
   list_path: /orgs/{resource}/members
   promote_path: /orgs/{resource}/administrators/{user}

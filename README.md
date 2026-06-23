@@ -39,9 +39,15 @@ The scan *finds* candidates; the checker/plugin *proves* impact.
 
 ```bash
 pip install -r requirements.txt
-python tests/test_e2e.py     # demo: detects BOLA + role escalation on a vulnerable mock
+python tests/test_e2e.py     # demo: detects 6 BAC classes on a vulnerable mock
 python -m bacscan.cli --config examples/engagement.example.yaml --har traffic.har
+# also accepts:  --openapi spec.yaml   --access-matrix access_matrix.json
 ```
+
+**Probes**: `idor` (BOLA), `bfla` (force-browse + verb-tampering/asymmetry),
+`bopla` (mass-assignment), `leakage` (existence-leakage oracle). **Confirmation plugin**:
+`role_escalation`. **Safe by default**: mutating requests run only with `safety.destructive: true`
+(with automatic rollback).
 
 ## Why it is safe to use responsibly
 

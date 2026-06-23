@@ -1,9 +1,6 @@
 # -*- coding: utf-8 -*-
-"""Test e2e : demarre le mock vulnerable, execute bacscan, asserte la detection.
-
-C'est la verification EMPIRIQUE de l'outil : si bacscan detecte la BOLA et confirme
-l'escalade de role sur le mock, le pipeline complet fonctionne.
-"""
+"""Test e2e : mock vulnerable + bacscan ; asserte la detection de toutes les classes
+(IDOR/BOLA, BFLA force-browse, BFLA asymetrie, BOPLA, existence leakage, escalade de role)."""
 import json
 import os
 import sys
@@ -19,9 +16,14 @@ import mock_server
 
 
 def build_har(base):
+    auth = [{"name": "Authorization", "value": "Bearer captured"}]
     return {"log": {"entries": [
-        {"request": {"method": "GET", "url": base + "/orgs/o-50/members",
-                     "headers": [{"name": "Authorization", "value": "Bearer captured"}]}},
+        {"request": {"method": "GET", "url": base + "/orgs/o-50/members", "headers": auth}},
+        {"request": {"method": "GET", "url": base + "/orgs/o-50/settings", "headers": auth}},
+        {"request": {"method": "GET", "url": base + "/secrets/s-1", "headers": auth}},
+        {"request": {"method": "POST", "url": base + "/orgs/o-50/members", "headers": auth,
+                     "postData": {"mimeType": "application/json",
+                                  "text": json.dumps({"userId": "u-3003"})}}},
     ]}}
 
 
@@ -30,8 +32,7 @@ def main():
     base = "http://127.0.0.1:%d" % httpd.server_address[1]
     try:
         cfg = Config({
-            "engagement": "test",
-            "base_url": base,
+            "engagement": "test", "base_url": base,
             "scope": {"allow_hosts": ["127.0.0.1"]},
             "auth": {"header": "Authorization", "prefix": "Bearer "},
             "profiles": [
@@ -42,13 +43,12 @@ def main():
                  "ids": {"userId": "u-2002", "orgId": "o-77"}},
             ],
             "safety": {"destructive": True, "rollback": "auto"},
-            "probes": ["idor"],
+            "probes": ["idor", "bfla", "bopla", "leakage"],
             "impact_plugins": ["role_escalation"],
             "role_escalation": {
                 "list_path": "/orgs/{resource}/members",
                 "promote_path": "/orgs/{resource}/administrators/{user}",
-                "rollback_path": "/orgs/{resource}/members/{user}",
-            },
+                "rollback_path": "/orgs/{resource}/members/{user}"},
         })
         tmp = tempfile.NamedTemporaryFile("w", suffix=".har", delete=False, encoding="utf-8")
         json.dump(build_har(base), tmp)
@@ -58,22 +58,21 @@ def main():
         res = cli.run(cfg, reqs)
         findings = res["findings"]
         types = {f["type"] for f in findings}
-        print("Findings:")
+        print("Types detectes:", sorted(types))
         print(json.dumps([{k: f.get(k) for k in ("type", "severity", "title")}
                           for f in findings], indent=2, ensure_ascii=False))
 
-        assert "idor" in types, "IDOR/BOLA non detecte (acces cross-org attendu)"
-        assert "privilege-escalation" in types, "Escalade de role non confirmee"
+        for expected in ("idor", "bfla", "bfla-asymmetry", "bopla",
+                         "existence-leakage", "privilege-escalation"):
+            assert expected in types, "non detecte: %s" % expected
         assert "anonymous-access" not in types, "anon ne doit pas passer (mock -> 401)"
 
-        # rollback effectif : u-1001 ne doit plus etre ADMINISTRATOR (le DELETE retire
-        # le lien -> entree absente, comme removeAdministrator dans le cas reel)
         post = mock_server.Handler.state["o-50"].get("u-1001")
         assert post is None or post.get("role") != "ADMINISTRATOR", "rollback non applique"
     finally:
         httpd.shutdown()
 
-    print("\nOK: bacscan detecte BOLA + confirme l'escalade de role, rollback applique.")
+    print("\nOK: idor + bfla + bfla-asymmetry + bopla + existence-leakage + privesc detectes.")
     return 0
 
 
