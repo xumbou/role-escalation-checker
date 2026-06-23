@@ -25,7 +25,8 @@ from . import auth as A
 from .config import Profile
 
 SUCCESS = (200, 201, 202, 204)
-GET_ACCESS = {"idor", "idor-dynamic", "idor-sequential", "bfla"}
+GET_ACCESS = {"idor", "idor-dynamic", "idor-sequential", "idor-encoded",
+              "idor-hashed", "bfla"}
 
 
 def _logger(path):

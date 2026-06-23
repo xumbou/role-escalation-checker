@@ -36,6 +36,8 @@ INVOICE = re.compile(r"^/invoices/([^/]+)/?$")
 GADMIN = re.compile(r"^/svc/orgs/([^/]+)/admins/([^/]+)/?$")
 GGRANTS = re.compile(r"^/svc/orgs/([^/]+)/grants/?$")
 GGRANT = re.compile(r"^/svc/orgs/([^/]+)/grants/([^/]+)/?$")
+E_RE = re.compile(r"^/e/([^/]+)/?$")   # objet a ID base64 (BOLA)
+H_RE = re.compile(r"^/h/([^/]+)/?$")   # objet a ID md5 (BOLA)
 
 SECRETS = {"s-1"}
 
@@ -136,6 +138,9 @@ class Handler(BaseHTTPRequestHandler):
             grants = self.orgs2.get(m.group(1), {})
             return self._send(200, {"grants": [
                 {"principal": u, "privilege": d["privilege"]} for u, d in grants.items()]})
+        m = E_RE.match(self.path) or H_RE.match(self.path)
+        if m:  # VULN BOLA : objet accessible par ID encode/hashe sans verif d'ownership
+            return self._send(200, {"id": m.group(1), "data": "obj"})
         m = SECRET.match(self.path)
         if m:  # existence leakage : 403 si existe, 404 sinon
             return self._send(403 if m.group(1) in SECRETS else 404)

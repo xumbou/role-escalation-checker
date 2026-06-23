@@ -7,8 +7,19 @@ qui n'appartiennent PAS a l'attaquant.
 """
 import re
 
-ID_KEYS = re.compile(r"(?i)(id$|_id$|ref$|reference$|uuid$|guid$|^pk$|number$|slug$)")
-OWNER_KEYS = ("owner", "ownerId", "userId", "user", "createdBy", "author")
+ID_KEYS = re.compile(
+    r"(?i)(id$|_id$|ref$|reference$|uuid$|guid$|^pk$|number$|slug$|title$|"
+    r"code$|handle$|sku$|^key$|key_id$|token_id$)")
+OWNER_KEYS = ("owner", "ownerId", "userId", "user", "createdBy", "author", "user_id")
+
+# Valeurs ressemblant a un identifiant meme si la cle n'est pas "id-like"
+_UUID = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
+_HEXLONG = re.compile(r"^[0-9a-fA-F]{16,64}$")
+
+
+def looks_like_id(v):
+    s = str(v)
+    return bool(_UUID.match(s) or _HEXLONG.match(s) or (s.isdigit() and len(s) <= 12))
 
 
 def harvest(obj):
@@ -24,7 +35,7 @@ def harvest(obj):
                     owner = str(v)
                     break
             for k, v in node.items():
-                if isinstance(v, (str, int)) and ID_KEYS.search(k):
+                if isinstance(v, (str, int)) and (ID_KEYS.search(k) or looks_like_id(v)):
                     found.append({"key": k, "val": str(v), "owner": owner})
             for v in node.values():
                 walk(v)

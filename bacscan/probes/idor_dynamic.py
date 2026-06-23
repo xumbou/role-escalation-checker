@@ -9,7 +9,10 @@
 
 Non destructif : GET uniquement.
 """
+import base64
+import hashlib
 import json
+import re
 
 import requests
 
@@ -30,6 +33,35 @@ def _neighbors(seg, rng):
     except (ValueError, TypeError):
         return []
     return [str(n + d) for d in range(-rng, rng + 1) if d != 0 and n + d >= 0]
+
+
+def _b64_int(seg):
+    """Renvoie l'entier si `seg` est un base64(url) d'un entier, sinon None."""
+    try:
+        pad = seg + "=" * (-len(seg) % 4)
+        dec = base64.urlsafe_b64decode(pad).decode("ascii", "ignore")
+    except Exception:
+        return None
+    return int(dec) if dec.isdigit() else None
+
+
+def _enc_b64(n):
+    return base64.urlsafe_b64encode(str(n).encode()).decode().rstrip("=")
+
+
+def _md5(n):
+    return hashlib.md5(str(n).encode()).hexdigest()
+
+
+def _crack_md5_int(seg, max_n):
+    """Si `seg` est un MD5 hex d'un petit entier, le retrouve par force brute bornee."""
+    if not seg or max_n <= 0 or not re.fullmatch(r"[0-9a-fA-F]{32}", seg):
+        return None
+    seg = seg.lower()
+    for n in range(0, max_n):
+        if hashlib.md5(str(n).encode()).hexdigest() == seg:
+            return n
+    return None
 
 
 def run(cfg, requests_list, ev, **kw):
@@ -90,4 +122,31 @@ def run(cfg, requests_list, ev, **kw):
                     "title": "IDOR sequentiel: %s accessible (voisin de %s)" % (nurl, last),
                     "request": {"method": "GET", "url": nurl},
                     "attacker": attacker.name, "evidence": nr})
+
+        # (3) IDs encodes (base64 d'un entier) / hashes (md5 d'un entier crackable)
+        crack_max = int(cfg.idor_dynamic.get("hash_crack_max", 5000))
+        for kind, n in (("encoded", _b64_int(last)),
+                        ("hashed", _crack_md5_int(last, crack_max))):
+            if n is None:
+                continue
+            for d in (-1, 1):
+                if n + d < 0:
+                    continue
+                seg = _enc_b64(n + d) if kind == "encoded" else _md5(n + d)
+                nurl = base + "/" + seg
+                if nurl in seen:
+                    continue
+                seen.add(nurl)
+                er = H.replay(s, cfg, {"method": "GET", "url": nurl, "headers": {},
+                                       "body": None}, attacker, ev,
+                              "dyn:%s:%s" % (kind, nurl), **kw)
+                if oracles.is_success(er):
+                    label = "base64" if kind == "encoded" else "MD5 crackable"
+                    findings.append({
+                        "type": "idor-%s" % kind, "severity": "high",
+                        "cwe": "CWE-639", "owasp_api": "API1:2023",
+                        "title": "IDOR sur ID %s (entier %d devine): %s accessible"
+                                 % (label, n + d, nurl),
+                        "request": {"method": "GET", "url": nurl},
+                        "attacker": attacker.name, "evidence": er})
     return findings
