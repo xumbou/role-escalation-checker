@@ -78,6 +78,8 @@ python3 -m bacscan --config examples/engagement.example.yaml --har traffic.har
 
 `bacscan`, `python3 -m bacscan` and `python3 -m bacscan.cli` are equivalent.
 Run the full local validation suite with `python3 tests/run_checks.py`.
+Real-target validation against VAmPI (found the real leak, triaged a real FP): see
+[docs/FIELD-TEST-vampi.md](docs/FIELD-TEST-vampi.md).
 
 ## Why it is safe to use responsibly
 

@@ -147,7 +147,8 @@ maps: { cwe: CWE-639, owasp_api: API3:2023 }
 | **v1** | BFLA (force-browse + verb-tamper/asymétrie) + BOPLA (mass-assignment) + oracle existence-leakage + ingestion OpenAPI | ✅ livré |
 | **v2** | couplage `access_matrix` statique→dynamique (loader générique `static_link.py`) | ✅ livré |
 | **v3** | **auth pluggable** (bearer/cookie/**OAuth refresh**/**CSRF**), **IDOR dynamique** (chaînage/harvest) + **séquentiel**, plugins de confirmation **déclaratifs YAML**, **GraphQL** (introspection + IDOR via variables) | ✅ livré |
-| **v4 (backlog)** | IDs encodés/hashés crackables, GraphQL mutations/BFLA, gRPC, durcissement terrain (pagination / WAF / gros HAR / throttling) | à faire |
+| **v3.1** | durcissement réseau (retry 429/5xx + Retry-After, redirects, erreurs explicites), redaction PII, audit log horodaté, triage des faux positifs | ✅ livré |
+| **v4 (backlog)** | **sonde excessive-data-exposure** (champs sensibles dans les réponses) + **heuristiques d'ID enrichies** (clés métier) + dedup — *priorités issues du [field test VAmPI](FIELD-TEST-vampi.md)* ; puis IDs hashés, GraphQL mutations/BFLA, gRPC, pagination/WAF/gros HAR | à faire |
 
 > **OpSec renforcé** : le moteur différentiel et la sonde IDOR ne rejouent **plus** les verbes mutateurs en mode non-destructif. Les sondes BFLA verb-tamper / BOPLA, le plugin role-escalation et les plugins déclaratifs marqués `requires.destructive` exigent `safety.destructive: true` (avec rollback). L'auth gère le **refresh de token sur 401** et l'injection **CSRF** sur les verbes mutateurs.
 
