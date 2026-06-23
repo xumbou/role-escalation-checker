@@ -35,3 +35,12 @@ Goal: measure real true/false positives and surface what breaks on a live target
 On a live target, bacscan found the real vulnerability **and** correctly filtered a real false
 positive, with working audit + PII redaction. It is **field-usable under supervision**. Reaching
 *comprehensive* coverage needs an excessive-data probe and deeper IDOR heuristics (see backlog).
+
+## v4 re-run (after the improvements)
+Re-ran against VAmPI with the v4 probes:
+- **excessive-data-exposure** now flags `/users/v1/_debug` (passwords) and `/users/v1` (emails)
+  as a **HIGH** finding — the false-negative gap from the first run is closed.
+- **grouping** condensed 4 broken-auth hits into a single finding (less noise on a fully-open API).
+- the lab itself surfaced a real bug — grouped findings took the *first* element's severity instead
+  of the **max** — **found, fixed, and locked by a regression test**.
+- triage still correctly filtered the public-resource false positive.
