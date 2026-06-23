@@ -57,6 +57,7 @@ class Config:
         self.probes = data.get("probes") or []
         self.impact_plugins = data.get("impact_plugins") or []
         self.sensitive_fields = data.get("sensitive_fields") or []  # champs custom pour excessive-data
+        self.group_findings = bool(data.get("group_findings", False))  # regrouper les types bruyants
         self.declarative = data.get("declarative_plugins") or []
         out = data.get("output") or {}
         self.findings_db = out.get("findings_db")

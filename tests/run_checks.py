@@ -191,6 +191,11 @@ def c_idheur():
     assert test_idheur.main() == 0
 
 
+def c_dedup():
+    import test_dedup
+    assert test_dedup.main() == 0
+
+
 def c_pyflakes():
     import importlib.util
     import subprocess
@@ -218,7 +223,8 @@ def main():
     run("10. cas d'origine (auto-nomination admin, forme custom)", c_origin_case)
     run("11. excessive-data-exposure", c_excessive)
     run("12. ID heuristics (base64/md5 enum + cles metier)", c_idheur)
-    run("13. pyflakes (code mort)", c_pyflakes)
+    run("13. dedup + grouping", c_dedup)
+    run("14. pyflakes (code mort)", c_pyflakes)
 
     fails = [r for r in RESULTS if not r[1]]
     print("\n" + "=" * 60)

@@ -18,6 +18,42 @@ PROBES = {"idor": idor.run, "bfla": bfla.run, "bopla": bopla.run,
           "leakage": leakage.run, "idor_dynamic": idor_dynamic.run,
           "graphql": graphql.run}
 PLUGINS = {"role_escalation": role_escalation.run}
+GROUPABLE = {"anonymous-access", "excessive-data-exposure"}
+
+
+def _dedup(findings):
+    """Supprime les findings strictement identiques (type, methode, url, champs)."""
+    seen, out = set(), []
+    for f in findings:
+        req = f.get("request") or {}
+        key = (f.get("type"), req.get("method"), req.get("url"),
+               tuple(f.get("fields") or ()))
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(f)
+    return out
+
+
+def _group(findings):
+    """Regroupe les types bruyants (broken-auth qui allume chaque endpoint) en 1 finding."""
+    buckets, out = {}, []
+    for f in findings:
+        if f.get("type") in GROUPABLE:
+            buckets.setdefault(f["type"], []).append(f)
+        else:
+            out.append(f)
+    for t, fs in buckets.items():
+        if len(fs) == 1:
+            out.append(fs[0])
+            continue
+        urls = [(f.get("request") or {}).get("url") for f in fs]
+        agg = dict(fs[0])
+        agg["title"] = "%s sur %d endpoints (groupes): %s ..." % (t, len(fs), urls[0])
+        agg["grouped_urls"] = urls
+        agg["request"] = {"method": "*", "url": "%d endpoints" % len(fs)}
+        out.append(agg)
+    return out
 
 
 def run(cfg, requests_list, **kw):
@@ -36,6 +72,9 @@ def run(cfg, requests_list, **kw):
         if fn:
             findings += fn(cfg, ev, **kw)
     findings += declarative.run_all(cfg, ev, **kw)  # plugins YAML declaratifs
+    findings = _dedup(findings)                       # supprime les doublons stricts
+    if cfg.group_findings:
+        findings = _group(findings)                   # regroupe les types bruyants
     tri = triage.run(cfg, findings, ev, **kw)        # confirme / refute (avec raison loggee)
     return {"findings": findings, "matrix": matrix, "evidence": ev.events,
             "confirmed": tri["confirmed"], "false_positives": tri["false_positives"],
