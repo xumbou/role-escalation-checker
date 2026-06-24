@@ -131,7 +131,8 @@ def cmd_capture(args):
     from . import capture
     try:
         capture.run_capture(args.allow_host, port=args.port,
-                            har_out=args.har_out, flush_every=args.flush_every)
+                            har_out=args.har_out, flush_every=args.flush_every,
+                            oos_har=args.oos_har)
     except ImportError as exc:
         print(str(exc))
         return 3
@@ -191,6 +192,8 @@ def build_parser():
                     help="Fichier HAR de sortie (cree en 0600)")
     cp.add_argument("--flush-every", dest="flush_every", type=int, default=1,
                     help="Reecrire le HAR toutes les N entrees")
+    cp.add_argument("--oos-har", dest="oos_har", default=None,
+                    help="DIAGNOSTIC : ecrire le trafic HORS scope dans ce HAR (0600)")
     cp.set_defaults(func=cmd_capture)
 
     gp = sub.add_parser("suggest", help="Auto-detecter -> engagement.yaml (aucune requete)")

@@ -139,16 +139,17 @@ class HarWriter:
     entierement -> le fichier sur disque est TOUJOURS un HAR valide.
     """
 
-    def __init__(self, path, allow_hosts, flush_every=1):
+    def __init__(self, path, allow_hosts, flush_every=1, accept_all=False):
         self.path = path
         self.allow_hosts = set(allow_hosts or [])
         self.flush_every = max(1, int(flush_every))
+        self.accept_all = accept_all
         self.entries = []
         self._dirty = 0
 
     # -- scope -------------------------------------------------------------- #
     def in_scope(self, url):
-        return host_of(url) in self.allow_hosts
+        return True if self.accept_all else host_of(url) in self.allow_hosts
 
     # -- ajout -------------------------------------------------------------- #
     def add_entry(self, entry):
@@ -230,10 +231,16 @@ class CaptureAddon:
     Testable avec des flows factices (cf. tests/test_capture_har.py).
     """
 
-    def __init__(self, writer):
+    def __init__(self, writer, oos_writer=None):
         self.writer = writer
+        self.oos_writer = oos_writer  # ecrit le trafic HORS scope (diagnostic), optionnel
         self.count = 0
         self.skipped = 0
+        self.skipped_hosts = {}
+
+    def _note_skipped(self, url):
+        h = host_of(url)
+        self.skipped_hosts[h] = self.skipped_hosts.get(h, 0) + 1
 
     def response(self, flow):
         """Hook mitmproxy : appele quand une reponse complete arrive."""
@@ -242,9 +249,12 @@ class CaptureAddon:
             url = req.url
         except AttributeError:
             return
-        if not self.writer.in_scope(url):
+        in_scope = self.writer.in_scope(url)
+        if not in_scope:
             self.skipped += 1
-            return
+            self._note_skipped(url)
+            if self.oos_writer is None:  # pas de diagnostic demande -> on ignore
+                return
         resp = getattr(flow, "response", None)
         req_mime = req.headers.get("content-type") if hasattr(req, "headers") else None
         req_body = None
@@ -268,13 +278,17 @@ class CaptureAddon:
             req_body=req_body, req_mime=req_mime,
             status=status, resp_headers=resp_headers,
             resp_body=resp_body, resp_mime=resp_mime)
-        if self.writer.add_entry(entry):
-            self.count += 1
+        if in_scope:
+            if self.writer.add_entry(entry):
+                self.count += 1
+        elif self.oos_writer is not None:
+            self.oos_writer.add_entry(entry)
 
 
-def run_capture(allow_hosts, port=8080, har_out="traffic.har", flush_every=1):
+def run_capture(allow_hosts, port=8080, har_out="traffic.har", flush_every=1, oos_har=None):
     """Lance le proxy mitmproxy et capture le trafic en scope vers `har_out`.
 
+    Si `oos_har` est fourni, le trafic HORS scope y est ecrit (diagnostic du scope).
     Bloquant jusqu'a Ctrl-C. Necessite mitmproxy (extra `[capture]`).
     """
     _import_mitmproxy()
@@ -289,6 +303,13 @@ def run_capture(allow_hosts, port=8080, har_out="traffic.har", flush_every=1):
     writer = HarWriter(har_out, allow_hosts, flush_every=flush_every)
     writer.flush()  # cree immediatement un HAR vide valide, en 0600
 
+    oos_writer = None
+    if oos_har:
+        oos_writer = HarWriter(oos_har, allow_hosts=set(), flush_every=flush_every,
+                               accept_all=True)
+        oos_writer.flush()
+        _safe_console("[capture] DIAGNOSTIC : trafic HORS scope ecrit (0600) -> %s" % oos_har)
+
     _safe_console("[capture] proxy en ecoute sur 127.0.0.1:%d" % port)
     _safe_console("[capture] configure ton client/navigateur sur ce proxy HTTP(S)")
     _safe_console("[capture] CA mitmproxy : visite http://mitm.it une fois le proxy actif")
@@ -296,7 +317,7 @@ def run_capture(allow_hosts, port=8080, har_out="traffic.har", flush_every=1):
     _safe_console("[capture] HAR live (0600) -> %s   (Ctrl-C pour arreter)" % har_out)
     _safe_console("[capture] SECRETS : ce HAR contient des tokens/cookies -- ne pas committer")
 
-    addon = CaptureAddon(writer)
+    addon = CaptureAddon(writer, oos_writer=oos_writer)
 
     async def _amain():
         opts = options.Options(listen_host="127.0.0.1", listen_port=int(port))
@@ -313,6 +334,13 @@ def run_capture(allow_hosts, port=8080, har_out="traffic.har", flush_every=1):
         pass
     finally:
         writer.flush()
-        _safe_console("[capture] arret. %d entree(s) capturee(s), %d hors scope ignoree(s) -> %s"
-                      % (addon.count, addon.skipped, har_out))
+        if oos_writer is not None:
+            oos_writer.flush()
+        _safe_console("[capture] arret. %d entree(s) capturee(s), %d hors scope%s -> %s"
+                      % (addon.count, addon.skipped,
+                         (" ecrites dans %s" % oos_har) if oos_har else " ignoree(s)", har_out))
+        if addon.skipped_hosts:
+            top = sorted(addon.skipped_hosts.items(), key=lambda kv: -kv[1])[:15]
+            _safe_console("[capture] hosts HORS scope (top) : "
+                          + ", ".join("%s=%d" % (h, n) for h, n in top))
     return addon.count
